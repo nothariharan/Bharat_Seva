@@ -19,7 +19,7 @@ app.post('/api/chat', async (req, res) => {
 
   try {
     // Use the Flash model for speed and low cost
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     // --- YOUR NEW PROMPT START ---
     const prompt = `

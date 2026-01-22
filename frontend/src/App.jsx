@@ -1,37 +1,114 @@
-import React, { useState } from 'react';
-// Keep your existing imports
-// import axios from 'axios'; 
-// import { Mic, Square, Volume2, Globe, FileText, CheckCircle, Building2 } from 'lucide-react';
-// ... other imports
-
-// Import the new Welcome component
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import WelcomeIntro from './components/WelcomeIntro';
+import LandingPage from './components/LandingPage';
+
+// Define languages here to pass down
+const LANGUAGES = [
+  { name: "English", code: "en-IN", label: "English" },
+  { name: "Hindi", code: "hi-IN", label: "हिंदी" },
+  { name: "Telugu", code: "te-IN", label: "తెలుగు" },
+  { name: "Tamil", code: "ta-IN", label: "தமிழ்" },
+  { name: "Kannada", code: "kn-IN", label: "ಕನ್ನಡ" },
+  { name: "Malayalam", code: "ml-IN", label: "മലയാളം" },
+];
 
 const App = () => {
-  // New state to manage the intro sequence
+  // --- STATE MANAGEMENT ---
   const [showWelcome, setShowWelcome] = useState(true);
-
-  // Keep your existing App states...
   const [isListening, setIsListening] = useState(false);
-  // ... rest of your existing state variables
+  const [selectedLang, setSelectedLang] = useState(LANGUAGES[1]); // Default to Hindi
+  const [transcript, setTranscript] = useState("");
+  const [response, setResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Keep your existing functions (startListening, fetchSolution, etc.)...
+  // Point to your local backend
+  const BACKEND_URL = "http://localhost:3000/api/chat"; 
 
+  // --- CORE LOGIC ---
 
-  // --- THE RENDER LOGIC ---
+  // 1. Handle Voice Input
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert("Browser not supported. Please use Chrome.");
+      return;
+    }
+    const recognition = new window.webkitSpeechRecognition();
+    recognition.lang = selectedLang.code;
+    recognition.continuous = false;
 
-  // 1. If showWelcome is true, ONLY render the intro component
+    recognition.onstart = () => {
+      setIsListening(true);
+      setTranscript(""); // Clear old transcript
+    };
+    
+    recognition.onresult = (event) => {
+      const text = event.results[0][0].transcript;
+      setTranscript(text);
+      // Slight delay to let user see their text before sending
+      setTimeout(() => fetchSolution(text), 1000);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+
+  // 2. Handle Text Input (from Chips)
+  const handleChipSelect = (text) => {
+    setTranscript(text);
+    fetchSolution(text);
+  };
+
+  // 3. API Call to Backend
+  const fetchSolution = async (text) => {
+    setLoading(true);
+    setResponse(null); // Reset previous response
+    try {
+      const res = await axios.post(BACKEND_URL, {
+        query: text,
+        language: selectedLang.name
+      });
+      setResponse(res.data);
+      // Auto-speak the summary when response arrives
+      if (res.data.summary_speech) {
+        speakResponse(res.data.summary_speech);
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to connect to backend. Is 'node server.js' running?");
+    }
+    setLoading(false);
+  };
+
+  // 4. Text-to-Speech Output
+  const speakResponse = (text) => {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = selectedLang.code;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // --- RENDER ---
+
+  // 1. Show Welcome Screen first
   if (showWelcome) {
     return <WelcomeIntro onComplete={() => setShowWelcome(false)} />;
   }
 
-  // 2. Once showWelcome is false, render your MAIN APP (Your existing code)
+  // 2. Show Main App
   return (
-    <div className="min-h-screen bg-orange-50 flex flex-col items-center font-sans p-6 animate-fade-in">
-       {/* ... All your existing Landing Page JSX goes here ... */}
-       {/* Just put a temporary placeholder if you want to test the transition without the full app code below */}
-       <h1 className="text-3xl mt-20">Main Landing Page Loaded!</h1>
-       {/* Replace the <h1> above with your actual complete JSX copy-pasted from previous steps */}
+    <div className="min-h-screen bg-orange-50 font-sans text-gray-900">
+      <LandingPage 
+        isListening={isListening}
+        onStartListening={startListening}
+        transcript={transcript}
+        response={response}
+        loading={loading}
+        selectedLang={selectedLang}
+        onLangChange={setSelectedLang}
+        languages={LANGUAGES}
+        onChipSelect={handleChipSelect}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
 
 const app = express();
 app.use(cors());
@@ -10,18 +10,47 @@ app.use(express.json());
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Helper function to extract JSON from messy text
+const cleanAndParseJSON = (text) => {
+  try {
+    // 1. Find the first '{' and the last '}'
+    const startIndex = text.indexOf('{');
+    const endIndex = text.lastIndexOf('}');
+
+    if (startIndex === -1 || endIndex === -1) {
+      throw new Error("No JSON object found in response");
+    }
+
+    // 2. Extract just the JSON part
+    const jsonString = text.substring(startIndex, endIndex + 1);
+
+    // 3. Parse it
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("JSON Parse Error. Raw Text was:", text);
+    throw error; // Re-throw to handle in the main route
+  }
+};
+
 app.post('/api/chat', async (req, res) => {
   const { query, language } = req.body;
   const userLang = language || "English";
 
-  // Log for debugging
   console.log(`Received Query: "${query}" in Language: "${userLang}"`);
 
   try {
-    // Use the Flash model for speed and low cost
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    // Use Flash model
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-flash-latest",
+      // SAFETY SETTINGS: Prevent blocking of harmless queries
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      ]
+    });
 
-    // --- YOUR NEW PROMPT START ---
     const prompt = `
       You are **"Bharat Seva"**, a highly experienced Indian public service assistant.
 
@@ -64,8 +93,9 @@ app.post('/api/chat', async (req, res) => {
            - Give a **general India-wide answer**
            - Clearly mention that exact steps may vary by state
 
-      4. **Solution Generation**
-         - Give **clear, step-by-step actions**
+      4. **Solution Generation (Updated)**
+         - Give **clear, step-by-step actions**.
+         - For each step, provide a **detailed explanation** and a **visual description** (image prompt) so we can generate an educational image for the user.
          - Assume the user has:
            - A basic phone
            - Possibly no email
@@ -101,9 +131,18 @@ app.post('/api/chat', async (req, res) => {
         "summary_speech": "Very simple, friendly summary (max 2 sentences) written for voice output in ${userLang}.",
 
         "steps": [
-          "Clear step 1 in ${userLang}",
-          "Clear step 2 in ${userLang}",
-          "Clear step 3 in ${userLang}"
+          {
+            "id": 1,
+            "text": "Short actionable step title in ${userLang}",
+            "detailed_explanation": "Simple, clear explanation of how to do this step in ${userLang}.",
+            "image_prompt": "A photorealistic educational scene showing: [Describe the action in English for an AI image generator]. No text in image."
+          },
+          {
+            "id": 2,
+            "text": "Next step title...",
+            "detailed_explanation": "Next explanation...",
+            "image_prompt": "Image description..."
+          }
         ],
 
         "required_documents": [
@@ -115,25 +154,15 @@ app.post('/api/chat', async (req, res) => {
 
         "additional_help": "Optional helpline, portal, or local office advice in ${userLang}"
       }
-
-      --------------------------------------------------
-      IMPORTANT FAILSAFE RULES
-      --------------------------------------------------
-      - If information is uncertain → clearly say so.
-      - Never invent scheme names.
-      - Never give legal advice beyond procedure.
-      - Always prefer helping over rejecting.
     `;
-    // --- PROMPT END ---
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
     
-    // Clean the output to ensure valid JSON (removes ```json markdown tags)
-    const cleanJson = responseText.replace(/```json|```/g, "").trim();
+    // USE THE ROBUST PARSER
+    const jsonData = cleanAndParseJSON(responseText);
 
-    // Parse and send back to frontend
-    res.json(JSON.parse(cleanJson));
+    res.json(jsonData);
 
   } catch (error) {
     console.error("Error generating content:", error);

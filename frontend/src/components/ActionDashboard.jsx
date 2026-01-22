@@ -1,85 +1,126 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, MapPin, FileText, CheckCircle, ExternalLink, MessageCircle, ArrowRight } from 'lucide-react';
+import { Play, Pause, FileText, CheckCircle, MessageCircle, ArrowRight, ArrowLeft, CheckSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ActionDashboard = ({ data, isPlaying, onToggleAudio }) => {
+// --- UI TRANSLATIONS FOR DASHBOARD ---
+const DASHBOARD_LABELS = {
+  "en-IN": { action_plan: "Action Plan", documents: "Documents", step: "STEP", of: "OF", ask_ai: "Ask AI", next: "Next Step", finish: "Finish", completed: "You're all set!", success_msg: "You have reviewed all the steps. Good luck!", review: "Review Again", listen: "Listen to Summary", playing: "Playing Summary..." },
+  "hi-IN": { action_plan: "कार्य योजना", documents: "दस्तावेज़", step: "चरण", of: "का", ask_ai: "AI से पूछें", next: "अगला चरण", finish: "समाप्त", completed: "प्रक्रिया पूरी हुई!", success_msg: "आपने सभी चरणों की समीक्षा कर ली है। शुभकामनाएँ!", review: "पुनः देखें", listen: "सारांश सुनें", playing: "सुना रहा हूँ..." },
+  "te-IN": { action_plan: "కార్యాచరణ ప్రణాళిక", documents: "పత్రాలు", step: "దశ", of: "/", ask_ai: "AIని అడగండి", next: "తదుపరి దశ", finish: "ముగించు", completed: "సిద్ధం!", success_msg: "మీరు అన్ని దశలను సమీక్షించారు. ఆల్ ది బెస్ట్!", review: "మళ్ళీ చూడండి", listen: "సారాంశం వినండి", playing: "వినిపిస్తోంది..." },
+  "ta-IN": { action_plan: "செயல் திட்டம்", documents: "ஆவணங்கள்", step: "படி", of: "/", ask_ai: "AI-இடம் கேளுங்கள்", next: "அடுத்த படி", finish: "முடி", completed: "தயார்!", success_msg: "வாழ்த்துக்கள்!", review: "மீண்டும் பார்க்க", listen: "சுருக்கத்தைக் கேளுங்கள்", playing: "ஒலிக்கிறது..." },
+  "kn-IN": { action_plan: "ಕ್ರಿಯಾ ಯೋಜನೆ", documents: "ದಾಖಲೆಗಳು", step: "ಹಂತ", of: "/", ask_ai: "AI ಅನ್ನು ಕೇಳಿ", next: "ಮುಂದಿನ ಹಂತ", finish: "ಮುಕ್ತಾಯ", completed: "ಸಿದ್ಧವಾಗಿದೆ!", success_msg: "ಶುಭವಾಗಲಿ!", review: "ಮತ್ತೊಮ್ಮೆ ನೋಡಿ", listen: "ಸಾರಾಂಶವನ್ನು ಕೇಳಿ", playing: "ಪ್ಲೇ ಆಗುತ್ತಿದೆ..." },
+  "ml-IN": { action_plan: "പ്രവർത്തന പദ്ധതി", documents: "രേഖകൾ", step: "ഘട്ടം", of: "/", ask_ai: "AI-യോട് ചോദിക്കൂ", next: "അടുത്ത ഘട്ടം", finish: "പൂർത്തിയാക്കുക", completed: "എല്ലാം ശരിയായി!", success_msg: "ആശംസകൾ!", review: "വീണ്ടും പരിശോധിക്കുക", listen: "സംഗ്രഹം കേൾക്കൂ", playing: "പ്ലേ ചെയ്യുന്നു..." },
+  "bn-IN": { action_plan: "কর্ম পরিকল্পনা", documents: "নথি", step: "ধাপ", of: "/", ask_ai: "AI জিজ্ঞাসা", next: "পরবর্তী ধাপ", finish: "শেষ", completed: "প্রস্তুত!", success_msg: "শুভকামনা!", review: "আবার দেখুন", listen: "সারাংশ শুনুন", playing: "শোনাচ্ছি..." },
+  "mr-IN": { action_plan: "कृती योजना", documents: "कागदपत्रे", step: "चरण", of: "/", ask_ai: "AI ला विचारा", next: "पुढचे पाऊल", finish: "समाप्त", completed: "तयार!", success_msg: "शुभेच्छा!", review: "पुन्हा पहा", listen: "सारांश ऐका", playing: "ऐकवत आहे..." },
+  "gu-IN": { action_plan: "કાર્ય યોજના", documents: "દસ્તાવેજો", step: "પગલું", of: "/", ask_ai: "AI ને પૂછો", next: "આગળનું પગલું", finish: "સમાપ્ત", completed: "તૈયાર!", success_msg: "શુભેચ્છા!", review: "ફરી જુઓ", listen: "સારાંશ સાંભળો", playing: "વાગી રહ્યું છે..." },
+  "pa-IN": { action_plan: "ਕਾਰਵਾਈ ਯੋਜਨਾ", documents: "ਦਸਤਾਵੇਜ਼", step: "ਕਦਮ", of: "/", ask_ai: "AI ਪੁੱਛੋ", next: "ਅਗਲਾ ਕਦਮ", finish: "ਖਤਮ", completed: "ਤਿਆਰ!", success_msg: "ਸ਼ੁਭਕਾਮਨਾਵਾਂ!", review: "ਦੁਬਾਰਾ ਵੇਖੋ", listen: "ਸਾਰਾਂਸ਼ ਸੁਣੋ", playing: "ਚੱਲ ਰਿਹਾ ਹੈ..." },
+  "or-IN": { action_plan: "କାର୍ଯ୍ୟ ଯୋଜନା", documents: "ଦଲିଲ୍", step: "ପଦକ୍ଷେପ", of: "/", ask_ai: "AI ପଚାରନ୍ତୁ", next: "ପରବର୍ତ୍ତୀ", finish: "ସମାପ୍ତ", completed: "ପ୍ରସ୍ତୁତ!", success_msg: "ଶୁଭେଚ୍ଛା!", review: "ପୁନଃ ଦେଖନ୍ତୁ", listen: "ସାରାଂଶ ଶୁଣନ୍ତୁ", playing: "ଚାଲୁଅଛି..." },
+  "ur-IN": { action_plan: "لائحہ عمل", documents: "دستاویزات", step: "مرحلہ", of: "کا", ask_ai: "AI پوچھیں", next: "اگلا مرحلہ", finish: "ختم", completed: "تیار!", success_msg: "گڈ لک!", review: "دوبارہ دیکھیں", listen: "خلاصہ سنیں", playing: "چل رہا ہے..." }
+};
+
+const ActionDashboard = ({ data, isPlaying, onToggleAudio, selectedLangCode }) => {
   if (!data) return null;
 
-  // State to track which step is currently active (for the Right Panel)
-  const [activeStep, setActiveStep] = useState(data.steps[0]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isCompleted, setIsCompleted] = useState(false);
 
-  // Ensure activeStep resets if data changes (e.g. new search)
+  // Fallback to English if language code not found
+  const labels = DASHBOARD_LABELS[selectedLangCode] || DASHBOARD_LABELS["en-IN"];
+
   useEffect(() => {
     if (data && data.steps.length > 0) {
-      setActiveStep(data.steps[0]);
+      setActiveIndex(0);
+      setIsCompleted(false);
     }
   }, [data]);
+
+  const activeStep = data.steps[activeIndex];
+  const progress = ((activeIndex + 1) / data.steps.length) * 100;
+
+  const handleNext = () => {
+    if (activeIndex < data.steps.length - 1) {
+      setActiveIndex(prev => prev + 1);
+    } else {
+      setIsCompleted(true);
+    }
+  };
+
+  const handlePrev = () => {
+    if (activeIndex > 0) {
+      setActiveIndex(prev => prev - 1);
+      setIsCompleted(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row gap-6 pb-20 animate-fade-in">
       
-      {/* === LEFT PANEL: THE CHECKLIST (35%) === */}
+      {/* === LEFT PANEL === */}
       <div className="w-full md:w-1/3 space-y-4">
         
-        {/* 1. Audio Player */}
-        <div 
-          onClick={onToggleAudio} // Make whole card clickable for easier interaction
-          className={`cursor-pointer p-4 rounded-xl shadow-lg text-white flex items-center justify-between transition-all ${
+        {/* 1. Audio Player - UPDATED to be a button for proper click handling */}
+        <button 
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleAudio();
+          }}
+          className={`w-full cursor-pointer p-4 rounded-xl shadow-lg text-white flex items-center justify-between transition-all active:scale-95 ${
             isPlaying ? 'bg-gradient-to-r from-orange-600 to-red-600 scale-[1.02]' : 'bg-gradient-to-r from-orange-500 to-orange-400'
           }`}
         >
-          <div>
-            <p className="text-orange-100 text-[10px] font-bold uppercase tracking-wider">AI Assistant</p>
+          <div className="text-left">
+            <p className="text-orange-100 text-[10px] font-bold uppercase tracking-wider">Bharat Seva AI</p>
             <p className="text-sm font-bold opacity-90">
-              {isPlaying ? "Playing Summary..." : "Listen to Summary"}
+              {isPlaying ? labels.playing : labels.listen}
             </p>
           </div>
-          <button className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition-transform">
-            {isPlaying ? (
-              <Pause size={18} className="text-orange-600 fill-current" />
-            ) : (
-              <Play size={18} className="text-orange-600 fill-current ml-0.5" />
-            )}
-          </button>
-        </div>
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-md text-orange-600">
+            {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" className="ml-0.5" />}
+          </div>
+        </button>
 
-        {/* 2. Steps List (Clickable) */}
+        {/* 2. Steps List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <h4 className="font-bold text-gray-800 flex items-center gap-2">
-              <CheckCircle size={18} className="text-green-500"/> Action Plan
+              <CheckCircle size={18} className="text-green-500"/> {labels.action_plan}
             </h4>
+            <span className="text-xs font-semibold text-gray-400">
+              {activeIndex + 1}/{data.steps.length}
+            </span>
           </div>
           
           <div className="divide-y divide-gray-50">
             {data.steps.map((step, i) => (
               <button
                 key={i}
-                onClick={() => setActiveStep(step)}
+                onClick={() => { setActiveIndex(i); setIsCompleted(false); }}
                 className={`w-full p-4 text-left transition-all hover:bg-orange-50 flex gap-3 ${
-                  activeStep.text === step.text ? 'bg-orange-50 ring-1 ring-inset ring-orange-200' : ''
+                  i === activeIndex ? 'bg-orange-50 ring-1 ring-inset ring-orange-200' : ''
                 }`}
               >
                 <div className={`flex-shrink-0 w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center border-2 transition-colors ${
-                   activeStep.text === step.text ? 'bg-orange-500 border-orange-500 text-white' : 'bg-white border-gray-200 text-gray-500'
+                   i === activeIndex ? 'bg-orange-500 border-orange-500 text-white' : 
+                   i < activeIndex ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-gray-200 text-gray-500'
                 }`}>
-                  {i + 1}
+                  {i < activeIndex ? <CheckSquare size={12}/> : i + 1}
                 </div>
                 <div>
-                  <p className={`text-sm font-medium ${activeStep.text === step.text ? 'text-orange-800' : 'text-gray-600'}`}>
+                  <p className={`text-sm font-medium ${i === activeIndex ? 'text-orange-800' : 'text-gray-600'}`}>
                     {step.text}
                   </p>
                 </div>
-                {activeStep.text === step.text && <ArrowRight size={16} className="text-orange-500 ml-auto self-center" />}
               </button>
             ))}
           </div>
         </div>
 
-        {/* 3. Documents & Location */}
-        <div className="grid grid-cols-1 gap-3">
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-             <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1"><FileText size={12}/> Documents</h4>
+        {/* 3. Documents */}
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+             <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+                <FileText size={12}/> {labels.documents}
+             </h4>
              <div className="flex flex-wrap gap-2">
                 {data.required_documents.map((doc, i) => (
                   <span key={i} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-100">
@@ -87,64 +128,111 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio }) => {
                   </span>
                 ))}
              </div>
-          </div>
         </div>
-
       </div>
 
-      {/* === RIGHT PANEL: THE VISUAL GUIDE (65%) === */}
+      {/* === RIGHT PANEL: FOCUS MODE === */}
       <div className="w-full md:w-2/3">
-        <AnimatePresence mode="wait">
-          <motion.div 
-            key={activeStep.text}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.3 }}
-            className="h-full flex flex-col"
-          >
-            {/* AI Generated Image Card */}
-            <div className="bg-white p-1 rounded-2xl shadow-sm border border-gray-100 mb-4 h-64 md:h-80 relative overflow-hidden group">
-              <img 
-                // FIX: Added &seed=${i} to ensure every step gets a UNIQUE image
-                // FIX: Added fallback text if image_prompt is missing
-                src={`https://image.pollinations.ai/prompt/${encodeURIComponent(
-                  activeStep.image_prompt || `Indian government office paperwork step ${activeStep.text}`
-                )}?width=800&height=600&nologo=true&seed=${data.steps.findIndex(s => s === activeStep) + 100}`} 
-                
-                alt="AI Generated Guide"
-                className="w-full h-full object-cover rounded-xl transition-transform duration-700 group-hover:scale-105"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-xl flex items-end p-6">
-                 <p className="text-white font-medium text-lg drop-shadow-md">
-                   Visual Guide: Step {data.steps.findIndex(s => s === activeStep) + 1}
-                 </p>
-              </div>
-            </div>
+        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 h-full flex flex-col overflow-hidden relative min-h-[500px]">
+          
+          {/* Progress Bar */}
+          <div className="h-1.5 w-full bg-gray-100">
+            <motion.div 
+              className="h-full bg-orange-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
 
-            {/* Detailed Explanation */}
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-grow relative">
-              <h3 className="text-xl font-bold text-gray-800 mb-3">{activeStep.text}</h3>
-              <p className="text-gray-600 leading-relaxed text-lg">
-                {activeStep.detailed_explanation}
-              </p>
-
-              {/* "Ask AI" Contextual Button */}
-              <div className="mt-6 pt-6 border-t border-gray-100 flex justify-between items-center">
-                <p className="text-sm text-gray-400">Need more help with this step?</p>
-                <button 
-                  onClick={() => alert("Chatbot Integration coming in Phase 2!")}
-                  className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-full font-medium hover:bg-gray-800 transition-colors shadow-lg active:scale-95"
+          <div className="flex-grow p-8 flex flex-col justify-center">
+            <AnimatePresence mode="wait">
+              {isCompleted ? (
+                <motion.div 
+                  key="completed"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center flex flex-col items-center justify-center h-full"
                 >
-                  <MessageCircle size={18} />
-                  Chat Assistant
-                </button>
-              </div>
-            </div>
+                  <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                    <CheckCircle size={48} />
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-2">{labels.completed}</h2>
+                  <p className="text-gray-500 max-w-md mx-auto mb-8 text-lg">
+                    {labels.success_msg}
+                  </p>
+                  <button 
+                    onClick={() => { setActiveIndex(0); setIsCompleted(false); }}
+                    className="text-orange-600 font-semibold hover:bg-orange-50 px-6 py-2 rounded-full transition-colors"
+                  >
+                    {labels.review}
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key={activeStep.text}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col h-full"
+                >
+                  {/* Step Indicator */}
+                  <div className="mb-6">
+                    <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full mb-4 tracking-wide uppercase">
+                      {labels.step} {activeIndex + 1} {labels.of} {data.steps.length}
+                    </span>
+                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
+                      {activeStep.text}
+                    </h2>
+                  </div>
+                  
+                  {/* Explanation Card */}
+                  <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-8 flex-grow">
+                    <p className="text-gray-700 text-lg leading-relaxed">
+                      {activeStep.detailed_explanation}
+                    </p>
+                  </div>
 
-          </motion.div>
-        </AnimatePresence>
+                  {/* Navigation */}
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center mt-auto">
+                     <button 
+                       className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-xl font-semibold hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+                       onClick={() => alert("Chatbot coming soon!")}
+                     >
+                        <MessageCircle size={18} />
+                        <span className="hidden sm:inline">{labels.ask_ai}</span>
+                     </button>
+                     
+                     <div className="flex-grow hidden sm:block"></div>
+
+                     <div className="flex gap-3 w-full sm:w-auto">
+                       <button 
+                         onClick={handlePrev}
+                         disabled={activeIndex === 0}
+                         className={`flex-1 sm:flex-none p-3 rounded-xl border border-gray-200 flex items-center justify-center transition-all ${
+                           activeIndex === 0 ? 'text-gray-300 cursor-not-allowed bg-gray-50' : 'text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                         }`}
+                       >
+                         <ArrowLeft size={20} />
+                       </button>
+
+                       <button 
+                          onClick={handleNext}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gray-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-gray-800 active:scale-95 transition-all shadow-lg"
+                       >
+                          {activeIndex === data.steps.length - 1 ? labels.finish : labels.next}
+                          <ArrowRight size={18} />
+                       </button>
+                     </div>
+                  </div>
+
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+        </div>
       </div>
 
     </div>

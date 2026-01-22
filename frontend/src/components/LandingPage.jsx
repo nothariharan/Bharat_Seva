@@ -43,18 +43,33 @@ const LandingPage = ({
   const isEnglish = selectedLang.code === "en-IN";
   const heroFontSize = isEnglish ? "text-4xl" : "text-2xl sm:text-3xl"; 
 
-  // --- AUDIO HANDLER ---
+  // --- AUDIO HANDLER WITH FALLBACK ---
   const handleToggleAudio = () => {
     if (isPlaying) {
       window.speechSynthesis.cancel();
       setIsPlaying(false);
     } else {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(response.summary_speech);
+      window.speechSynthesis.cancel(); // Stop existing speech
+      
+      // FALLBACK: Use summary OR combined step text if summary is missing
+      const textToSpeak = response.summary_speech || 
+                          response.steps.map(s => s.text).join(". ");
+
+      if (!textToSpeak) {
+        console.warn("No text available to speak");
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
       utterance.lang = selectedLang.code;
+      utterance.rate = 0.9; // Slower for clarity
       
       utterance.onend = () => setIsPlaying(false);
-      
+      utterance.onerror = (e) => {
+          console.error("Speech Error:", e);
+          setIsPlaying(false);
+      };
+
       speechRef.current = utterance;
       window.speechSynthesis.speak(utterance);
       setIsPlaying(true);
@@ -75,7 +90,14 @@ const LandingPage = ({
       <div className="w-full min-h-screen bg-orange-50/30 flex flex-col items-center pt-8 px-4 animate-fade-in">
         <div className="w-full max-w-5xl mb-6 flex justify-between items-end">
             <div>
-                <h1 className="text-2xl font-bold text-gray-800">Bharat Seva</h1>
+                <h1 className="text-3xl text-gray-800" style={{
+                    fontFamily: 'Samarkan',
+                    backgroundImage: 'linear-gradient(to right, #DAA520, #FFD700, #DAA520)', 
+                    backgroundSize: '200% auto',
+                    color: '#DAA520',
+                    WebkitBackgroundClip: 'text',
+                    textShadow: '0px 2px 4px rgba(0,0,0,0.1)'
+                }}>Bharat Seva</h1>
                 <p className="text-xs text-gray-500">AI Assistant Result</p>
             </div>
             <button 
@@ -89,11 +111,12 @@ const LandingPage = ({
             </button>
         </div>
         
-        {/* Pass Audio Handlers to Dashboard */}
+        {/* Pass Audio Handlers & Language Code to Dashboard */}
         <ActionDashboard 
             data={response} 
             isPlaying={isPlaying} 
             onToggleAudio={handleToggleAudio}
+            selectedLangCode={selectedLang.code} // FIX: Passing language for UI Translation
         />
       </div>
     );
@@ -179,7 +202,6 @@ const LandingPage = ({
             {t.hero}
         </motion.h3>
         
-        {/* CHANGED: Text Color to Black (gray-900) for visibility */}
         <p className="text-gray-900 font-medium text-sm mt-4">
             {t.tap_mic}
         </p>

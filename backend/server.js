@@ -95,6 +95,10 @@ app.post('/api/chat', async (req, res) => {
 
       4. **Solution Generation (Updated)**
          - Give **clear, step-by-step actions**.
+         - **CRITICAL STEP COUNT RULE:** Determine the exact number of steps based on the task's real complexity.
+           - If it is simple (e.g., checking status), use 3-4 steps.
+           - If it is complex (e.g., applying for a new card, land mutation), **use 6-10 steps**.
+           - **Do NOT artificially restrict yourself to 4 steps.**
          - For each step, provide a **detailed explanation** and a **visual description** (image prompt) so we can generate an educational image for the user.
          - Assume the user has:
            - A basic phone

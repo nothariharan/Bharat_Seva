@@ -1,30 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, FileText, CheckCircle, MessageCircle, ArrowRight, ArrowLeft, CheckSquare } from 'lucide-react';
+import { Play, Pause, FileText, CheckCircle, MessageCircle, ArrowRight, ArrowLeft, CheckSquare, Volume2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- UI TRANSLATIONS FOR DASHBOARD ---
 const DASHBOARD_LABELS = {
-  "en-IN": { action_plan: "Action Plan", documents: "Documents", step: "STEP", of: "OF", ask_ai: "Ask AI", next: "Next Step", finish: "Finish", completed: "You're all set!", success_msg: "You have reviewed all the steps. Good luck!", review: "Review Again", listen: "Listen to Summary", playing: "Playing Summary..." },
-  "hi-IN": { action_plan: "कार्य योजना", documents: "दस्तावेज़", step: "चरण", of: "का", ask_ai: "AI से पूछें", next: "अगला चरण", finish: "समाप्त", completed: "प्रक्रिया पूरी हुई!", success_msg: "आपने सभी चरणों की समीक्षा कर ली है। शुभकामनाएँ!", review: "पुनः देखें", listen: "सारांश सुनें", playing: "सुना रहा हूँ..." },
-  "te-IN": { action_plan: "కార్యాచరణ ప్రణాళిక", documents: "పత్రాలు", step: "దశ", of: "/", ask_ai: "AIని అడగండి", next: "తదుపరి దశ", finish: "ముగించు", completed: "సిద్ధం!", success_msg: "మీరు అన్ని దశలను సమీక్షించారు. ఆల్ ది బెస్ట్!", review: "మళ్ళీ చూడండి", listen: "సారాంశం వినండి", playing: "వినిపిస్తోంది..." },
-  "ta-IN": { action_plan: "செயல் திட்டம்", documents: "ஆவணங்கள்", step: "படி", of: "/", ask_ai: "AI-இடம் கேளுங்கள்", next: "அடுத்த படி", finish: "முடி", completed: "தயார்!", success_msg: "வாழ்த்துக்கள்!", review: "மீண்டும் பார்க்க", listen: "சுருக்கத்தைக் கேளுங்கள்", playing: "ஒலிக்கிறது..." },
-  "kn-IN": { action_plan: "ಕ್ರಿಯಾ ಯೋಜನೆ", documents: "ದಾಖಲೆಗಳು", step: "ಹಂತ", of: "/", ask_ai: "AI ಅನ್ನು ಕೇಳಿ", next: "ಮುಂದಿನ ಹಂತ", finish: "ಮುಕ್ತಾಯ", completed: "ಸಿದ್ಧವಾಗಿದೆ!", success_msg: "ಶುಭವಾಗಲಿ!", review: "ಮತ್ತೊಮ್ಮೆ ನೋಡಿ", listen: "ಸಾರಾಂಶವನ್ನು ಕೇಳಿ", playing: "ಪ್ಲೇ ಆಗುತ್ತಿದೆ..." },
-  "ml-IN": { action_plan: "പ്രവർത്തന പദ്ധതി", documents: "രേഖകൾ", step: "ഘട്ടം", of: "/", ask_ai: "AI-യോട് ചോദിക്കൂ", next: "അടുത്ത ഘട്ടം", finish: "പൂർത്തിയാക്കുക", completed: "എല്ലാം ശരിയായി!", success_msg: "ആശംസകൾ!", review: "വീണ്ടും പരിശോധിക്കുക", listen: "സംഗ്രഹം കേൾക്കൂ", playing: "പ്ലേ ചെയ്യുന്നു..." },
-  "bn-IN": { action_plan: "কর্ম পরিকল্পনা", documents: "নথি", step: "ধাপ", of: "/", ask_ai: "AI জিজ্ঞাসা", next: "পরবর্তী ধাপ", finish: "শেষ", completed: "প্রস্তুত!", success_msg: "শুভকামনা!", review: "আবার দেখুন", listen: "সারাংশ শুনুন", playing: "শোনাচ্ছি..." },
-  "mr-IN": { action_plan: "कृती योजना", documents: "कागदपत्रे", step: "चरण", of: "/", ask_ai: "AI ला विचारा", next: "पुढचे पाऊल", finish: "समाप्त", completed: "तयार!", success_msg: "शुभेच्छा!", review: "पुन्हा पहा", listen: "सारांश ऐका", playing: "ऐकवत आहे..." },
-  "gu-IN": { action_plan: "કાર્ય યોજના", documents: "દસ્તાવેજો", step: "પગલું", of: "/", ask_ai: "AI ને પૂછો", next: "આગળનું પગલું", finish: "સમાપ્ત", completed: "તૈયાર!", success_msg: "શુભેચ્છા!", review: "ફરી જુઓ", listen: "સારાંશ સાંભળો", playing: "વાગી રહ્યું છે..." },
-  "pa-IN": { action_plan: "ਕਾਰਵਾਈ ਯੋਜਨਾ", documents: "ਦਸਤਾਵੇਜ਼", step: "ਕਦਮ", of: "/", ask_ai: "AI ਪੁੱਛੋ", next: "ਅਗਲਾ ਕਦਮ", finish: "ਖਤਮ", completed: "ਤਿਆਰ!", success_msg: "ਸ਼ੁਭਕਾਮਨਾਵਾਂ!", review: "ਦੁਬਾਰਾ ਵੇਖੋ", listen: "ਸਾਰਾਂਸ਼ ਸੁਣੋ", playing: "ਚੱਲ ਰਿਹਾ ਹੈ..." },
-  "or-IN": { action_plan: "କାର୍ଯ୍ୟ ଯୋଜନା", documents: "ଦଲିଲ୍", step: "ପଦକ୍ଷେପ", of: "/", ask_ai: "AI ପଚାରନ୍ତୁ", next: "ପରବର୍ତ୍ତୀ", finish: "ସମାପ୍ତ", completed: "ପ୍ରସ୍ତୁତ!", success_msg: "ଶୁଭେଚ୍ଛା!", review: "ପୁନଃ ଦେଖନ୍ତୁ", listen: "ସାରାଂଶ ଶୁଣନ୍ତୁ", playing: "ଚାଲୁଅଛି..." },
-  "ur-IN": { action_plan: "لائحہ عمل", documents: "دستاویزات", step: "مرحلہ", of: "کا", ask_ai: "AI پوچھیں", next: "اگلا مرحلہ", finish: "ختم", completed: "تیار!", success_msg: "گڈ لک!", review: "دوبارہ دیکھیں", listen: "خلاصہ سنیں", playing: "چل رہا ہے..." }
+  "en-IN": { action_plan: "Action Plan", documents: "Documents", step: "STEP", of: "OF", ask_ai: "Ask AI", next: "Next Step", finish: "Finish", completed: "You're all set!", success_msg: "You have reviewed all the steps. Good luck!", review: "Review Again", listen: "Listen to Summary", playing: "Playing Summary...", read_step: "Read Step" },
+  "hi-IN": { action_plan: "कार्य योजना", documents: "दस्तावेज़", step: "चरण", of: "का", ask_ai: "AI से पूछें", next: "अगला चरण", finish: "समाप्त", completed: "प्रक्रिया पूरी हुई!", success_msg: "आपने सभी चरणों की समीक्षा कर ली है। शुभकामनाएँ!", review: "पुनः देखें", listen: "सारांश सुनें", playing: "सुना रहा हूँ...", read_step: "चरण सुनें" },
+  "te-IN": { action_plan: "కార్యాచరణ ప్రణాళిక", documents: "పత్రాలు", step: "దశ", of: "/", ask_ai: "AIని అడగండి", next: "తదుపరి దశ", finish: "ముగించు", completed: "సిద్ధం!", success_msg: "మీరు అన్ని దశలను సమీక్షించారు. ఆల్ ది బెస్ట్!", review: "మళ్ళీ చూడండి", listen: "సారాంశం వినండి", playing: "వినిపిస్తోంది...", read_step: "దశ వినండి" },
+  "ta-IN": { action_plan: "செயல் திட்டம்", documents: "ஆவணங்கள்", step: "படி", of: "/", ask_ai: "AI-இடம் கேளுங்கள்", next: "அடுத்த படி", finish: "முடி", completed: "தயார்!", success_msg: "வாழ்த்துக்கள்!", review: "மீண்டும் பார்க்க", listen: "சுருக்கத்தைக் கேளுங்கள்", playing: "ஒலிக்கிறது...", read_step: "படியை வாசிக்க" },
+  "kn-IN": { action_plan: "ಕ್ರಿಯಾ ಯೋಜನೆ", documents: "ದಾಖಲೆಗಳು", step: "ಹಂತ", of: "/", ask_ai: "AI ಅನ್ನು ಕೇಳಿ", next: "ಮುಂದಿನ ಹಂತ", finish: "ಮುಕ್ತಾಯ", completed: "ಸಿದ್ಧವಾಗಿದೆ!", success_msg: "ಶುಭವಾಗಲಿ!", review: "ಮತ್ತೊಮ್ಮೆ ನೋಡಿ", listen: "ಸಾರಾಂಶವನ್ನು ಕೇಳಿ", playing: "ಪ್ಲೇ ಆಗುತ್ತಿದೆ...", read_step: "ಹಂತವನ್ನು ಓದಿ" },
+  "ml-IN": { action_plan: "പ്രവർത്തന പദ്ധതി", documents: "രേഖകൾ", step: "ഘട്ടം", of: "/", ask_ai: "AI-യോട് ചോദിക്കൂ", next: "അടുത്ത ഘട്ടം", finish: "പൂർത്തിയാക്കുക", completed: "എല്ലാം ശരിയായി!", success_msg: "ആശംസകൾ!", review: "വീണ്ടും പരിശോധിക്കുക", listen: "സംഗ്രഹം കേൾക്കൂ", playing: "പ്ലേ ചെയ്യുന്നു...", read_step: "ഘട്ടം വായിക്കുക" },
+  "bn-IN": { action_plan: "কর্ম পরিকল্পনা", documents: "নথি", step: "ধাপ", of: "/", ask_ai: "AI জিজ্ঞাসা", next: "পরবর্তী ধাপ", finish: "শেষ", completed: "প্রস্তুত!", success_msg: "শুভকামনা!", review: "আবার দেখুন", listen: "সারাংশ শুনুন", playing: "শোনাচ্ছি...", read_step: "ধাপ পড়ুন" },
+  "mr-IN": { action_plan: "कृती योजना", documents: "कागदपत्रे", step: "चरण", of: "/", ask_ai: "AI ला विचारा", next: "पुढचे पाऊल", finish: "समाप्त", completed: "तयार!", success_msg: "शुभेच्छा!", review: "पुन्हा पहा", listen: "सारांश ऐका", playing: "ऐकवत आहे...", read_step: "चरण वाचा" },
+  "gu-IN": { action_plan: "કાર્ય યોજના", documents: "દસ્તાવેજો", step: "પગલું", of: "/", ask_ai: "AI ને પૂછો", next: "આગળનું પગલું", finish: "સમાપ્ત", completed: "તૈયાર!", success_msg: "શુભેચ્છા!", review: "ફરી જુઓ", listen: "સારાંશ સાંભળો", playing: "વાગી રહ્યું છે...", read_step: "પગલું વાંચો" },
+  "pa-IN": { action_plan: "ਕਾਰਵਾਈ ਯੋਜਨਾ", documents: "ਦਸਤਾਵੇਜ਼", step: "ਕਦਮ", of: "/", ask_ai: "AI ਪੁੱਛੋ", next: "ਅਗਲਾ ਕਦਮ", finish: "ਖਤਮ", completed: "ਤਿਆਰ!", success_msg: "ਸ਼ੁਭਕਾਮਨਾਵਾਂ!", review: "ਦੁਬਾਰਾ ਵੇਖੋ", listen: "ਸਾਰਾਂਸ਼ ਸੁਣੋ", playing: "ਚੱਲ ਰਿਹਾ ਹੈ...", read_step: "ਕਦਮ ਪੜ੍ਹੋ" },
+  "or-IN": { action_plan: "କାର୍ଯ୍ୟ ଯୋଜନା", documents: "ଦଲିଲ୍", step: "ପଦକ୍ଷେପ", of: "/", ask_ai: "AI ପଚାରନ୍ତୁ", next: "ପରବର୍ତ୍ତୀ", finish: "ସମାପ୍ତ", completed: "ପ୍ରସ୍ତୁତ!", success_msg: "ଶୁଭେଚ୍ଛା!", review: "ପୁନଃ ଦେଖନ୍ତୁ", listen: "ସାରାଂଶ ଶୁଣନ୍ତୁ", playing: "ଚାଲୁଅଛି...", read_step: "ପଦକ୍ଷେପ ପଢନ୍ତୁ" },
+  "ur-IN": { action_plan: "لائحہ عمل", documents: "دستاویزات", step: "مرحلہ", of: "کا", ask_ai: "AI پوچھیں", next: "اگلا مرحلہ", finish: "ختم", completed: "تیار!", success_msg: "گڈ لک!", review: "دوبارہ دیکھیں", listen: "خلاصہ سنیں", playing: "چل رہا ہے...", read_step: "مرحلہ پڑھیں" }
 };
 
-const ActionDashboard = ({ data, isPlaying, onToggleAudio, selectedLangCode }) => {
+const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selectedLangCode }) => {
   if (!data) return null;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // Fallback to English if language code not found
   const labels = DASHBOARD_LABELS[selectedLangCode] || DASHBOARD_LABELS["en-IN"];
 
   useEffect(() => {
@@ -58,7 +57,7 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, selectedLangCode }) =
       {/* === LEFT PANEL === */}
       <div className="w-full md:w-1/3 space-y-4">
         
-        {/* 1. Audio Player - UPDATED to be a button for proper click handling */}
+        {/* 1. Audio Player */}
         <button 
           type="button"
           onClick={(e) => {
@@ -178,13 +177,23 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, selectedLangCode }) =
                   className="flex flex-col h-full"
                 >
                   {/* Step Indicator */}
-                  <div className="mb-6">
-                    <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full mb-4 tracking-wide uppercase">
-                      {labels.step} {activeIndex + 1} {labels.of} {data.steps.length}
-                    </span>
-                    <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
-                      {activeStep.text}
-                    </h2>
+                  <div className="mb-6 flex justify-between items-start">
+                    <div>
+                      <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full mb-4 tracking-wide uppercase">
+                        {labels.step} {activeIndex + 1} {labels.of} {data.steps.length}
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-800 leading-tight">
+                        {activeStep.text}
+                      </h2>
+                    </div>
+                    {/* NEW PLAY BUTTON FOR STEP */}
+                    <button
+                      onClick={() => onSpeakStep(activeStep.text + ". " + activeStep.detailed_explanation)}
+                      className="p-3 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100 transition-colors shadow-sm"
+                      title={labels.read_step}
+                    >
+                      <Volume2 size={24} />
+                    </button>
                   </div>
                   
                   {/* Explanation Card */}

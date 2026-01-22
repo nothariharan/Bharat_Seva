@@ -35,48 +35,112 @@ const LandingPage = ({
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState([]);
   
-  // Audio Ref to prevent overlapping speech
   const speechRef = useRef(null);
 
   const t = UI_TEXT[selectedLang.code] || UI_TEXT["en-IN"];
   const isEnglish = selectedLang.code === "en-IN";
   const heroFontSize = isEnglish ? "text-4xl" : "text-2xl sm:text-3xl"; 
 
-  // --- AUDIO HANDLER WITH FALLBACK ---
+  // --- 1. LOAD VOICES ---
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        setAvailableVoices(voices);
+      }
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
+
+  // --- HELPER: GET BEST VOICE (Prioritize Natural/Google) ---
+  const getBestVoice = (langCode) => {
+    if (availableVoices.length === 0) return null;
+
+    // 1. Try finding a "Google" voice (Usually highest quality on Chrome/Android)
+    let voice = availableVoices.find(v => v.lang === langCode && v.name.includes("Google"));
+    
+    // 2. If not, try "Microsoft" voice (High quality on Edge/Windows)
+    if (!voice) {
+      voice = availableVoices.find(v => v.lang === langCode && v.name.includes("Microsoft"));
+    }
+
+    // 3. If not, try exact language match
+    if (!voice) {
+      voice = availableVoices.find(v => v.lang === langCode);
+    }
+
+    // 4. Fallback to language base (e.g. 'hi' for 'hi-IN')
+    if (!voice) {
+      const shortCode = langCode.split('-')[0];
+      voice = availableVoices.find(v => v.lang.startsWith(shortCode));
+    }
+
+    return voice;
+  };
+
+  // --- SPEAK SPECIFIC TEXT (Used for Steps) ---
+  const speakText = (text) => {
+    window.speechSynthesis.cancel();
+    if (!text) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voice = getBestVoice(selectedLang.code);
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    }
+
+    // Slow down Indian languages slightly for better clarity
+    utterance.rate = selectedLang.code === 'en-IN' ? 1.0 : 0.85; 
+    
+    // Resume global playing state if it was paused, or just play
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // --- TOGGLE AUDIO FOR SUMMARY (Play/Pause/Resume) ---
   const handleToggleAudio = () => {
     if (isPlaying) {
-      window.speechSynthesis.cancel();
-      setIsPlaying(false);
-    } else {
-      window.speechSynthesis.cancel(); // Stop existing speech
-      
-      // FALLBACK: Use summary OR combined step text if summary is missing
-      const textToSpeak = response.summary_speech || 
-                          response.steps.map(s => s.text).join(". ");
-
-      if (!textToSpeak) {
-        console.warn("No text available to speak");
-        return;
+      // PAUSE logic
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        setIsPlaying(false);
       }
+    } else {
+      // RESUME or START logic
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+        setIsPlaying(true);
+      } else {
+        // Start Fresh
+        window.speechSynthesis.cancel();
+        
+        let textToSpeak = response.summary_speech;
+        // Fallback if summary is missing
+        if (!textToSpeak) {
+          textToSpeak = response.steps.slice(0, 2).map(s => s.text).join(". ");
+        }
+        
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        const voice = getBestVoice(selectedLang.code);
+        if (voice) {
+            utterance.voice = voice;
+            utterance.lang = voice.lang;
+        }
+        utterance.rate = selectedLang.code === 'en-IN' ? 1.0 : 0.85;
 
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = selectedLang.code;
-      utterance.rate = 0.9; // Slower for clarity
-      
-      utterance.onend = () => setIsPlaying(false);
-      utterance.onerror = (e) => {
-          console.error("Speech Error:", e);
-          setIsPlaying(false);
-      };
-
-      speechRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
-      setIsPlaying(true);
+        utterance.onend = () => setIsPlaying(false);
+        
+        speechRef.current = utterance;
+        window.speechSynthesis.speak(utterance);
+        setIsPlaying(true);
+      }
     }
   };
 
-  // Stop audio on unmount or refresh
   useEffect(() => {
     return () => {
       window.speechSynthesis.cancel();
@@ -111,40 +175,34 @@ const LandingPage = ({
             </button>
         </div>
         
-        {/* Pass Audio Handlers & Language Code to Dashboard */}
         <ActionDashboard 
             data={response} 
             isPlaying={isPlaying} 
             onToggleAudio={handleToggleAudio}
-            selectedLangCode={selectedLang.code} // FIX: Passing language for UI Translation
+            onSpeakStep={speakText}
+            selectedLangCode={selectedLang.code}
         />
       </div>
     );
   }
 
-  // --- MAIN LANDING VIEW ---
+  // --- MAIN LANDING VIEW (Unchanged) ---
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto pt-6 relative overflow-hidden">
       
-      {/* 1. Header */}
       <div className="flex justify-between items-center px-4 mt-4 relative z-50">
         <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="text-5xl font-normal select-none"
           style={{
             fontFamily: 'Samarkan',
             backgroundImage: 'linear-gradient(to right, #DAA520, #FFD700, #DAA520)', 
-            backgroundSize: '200% auto',
-            color: '#DAA520',
-            WebkitBackgroundClip: 'text',
-            textShadow: '0px 2px 4px rgba(0,0,0,0.1)'
+            backgroundSize: '200% auto', color: '#DAA520', WebkitBackgroundClip: 'text', textShadow: '0px 2px 4px rgba(0,0,0,0.1)'
           }}
         >
           Bharat Seva
         </motion.h1>
 
-        {/* Language Dropdown */}
         <div className="relative">
           <button 
             onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
@@ -158,21 +216,14 @@ const LandingPage = ({
           <AnimatePresence>
             {isLangMenuOpen && (
               <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                 className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 h-64 overflow-y-auto"
               >
                 {languages.map((lang) => (
                   <button
                     key={lang.code}
-                    onClick={() => {
-                      onLangChange(lang);
-                      setIsLangMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-4 py-3 text-xs font-medium hover:bg-orange-50 transition-colors border-b border-gray-50 last:border-0 ${
-                      selectedLang.code === lang.code ? 'text-orange-600 bg-orange-50/50' : 'text-gray-600'
-                    }`}
+                    onClick={() => { onLangChange(lang); setIsLangMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-3 text-xs font-medium hover:bg-orange-50 transition-colors border-b border-gray-50 last:border-0 ${selectedLang.code === lang.code ? 'text-orange-600 bg-orange-50/50' : 'text-gray-600'}`}
                   >
                     {lang.label}
                   </button>
@@ -183,84 +234,46 @@ const LandingPage = ({
         </div>
       </div>
 
-      {/* 2. Hero Text */}
       <motion.div 
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
+        initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: 'easeOut' }}
         className="mt-12 px-2 text-center mb-8"
       >
-        <h2 className="text-2xl font-light text-gray-500 mb-1">
-            {t.greeting}
-        </h2>
-        
+        <h2 className="text-2xl font-light text-gray-500 mb-1">{t.greeting}</h2>
         <motion.h3 
-            animate={{ opacity: [1, 0.85, 1] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{ opacity: [1, 0.85, 1] }} transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             className={`${heroFontSize} font-bold text-gray-800 leading-tight tracking-tight py-2 whitespace-nowrap overflow-visible`}
         >
             {t.hero}
         </motion.h3>
-        
-        <p className="text-gray-900 font-medium text-sm mt-4">
-            {t.tap_mic}
-        </p>
+        <p className="text-gray-900 font-medium text-sm mt-4">{t.tap_mic}</p>
       </motion.div>
 
-      {/* 3. Mic & Feedback */}
       <div className="flex-grow flex flex-col items-center justify-center -mt-6">
         <PulseMic isListening={isListening} onClick={onStartListening} />
-        
         <div className="h-20 mt-8 w-full px-6 text-center flex items-center justify-center">
             <AnimatePresence mode="wait">
               {isListening ? (
-                  <motion.p 
-                    key="listening"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="text-orange-500 font-medium animate-pulse text-lg"
-                  >
-                    {t.listening}
-                  </motion.p>
+                  <motion.p key="listening" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-orange-500 font-medium animate-pulse text-lg">{t.listening}</motion.p>
               ) : loading ? (
-                   <motion.div 
-                      key="loading"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="flex flex-col items-center gap-2 text-orange-600 font-medium"
-                   >
+                   <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-2 text-orange-600 font-medium">
                       <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-xs tracking-widest uppercase opacity-80">{t.processing}</span>
                    </motion.div>
               ) : transcript ? (
-                  <motion.p 
-                    key="transcript"
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="text-gray-800 font-medium italic text-lg leading-relaxed"
-                  >
-                    "{transcript}"
-                  </motion.p>
+                  <motion.p key="transcript" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-gray-800 font-medium italic text-lg leading-relaxed">"{transcript}"</motion.p>
               ) : (
-                  <motion.p 
-                    key="hint"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="text-gray-400 text-sm font-light"
-                  >
-                    {t.hint}
-                  </motion.p>
+                  <motion.p key="hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-gray-400 text-sm font-light">{t.hint}</motion.p>
               )}
             </AnimatePresence>
         </div>
       </div>
 
-      {/* 4. Suggestions */}
       <motion.div 
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, type: 'spring' }}
+        initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, type: 'spring' }}
         className="mb-8 w-full"
       >
         <SuggestionChips onSelect={onChipSelect} suggestions={t.suggestions} />
       </motion.div>
-
     </div>
   );
 };

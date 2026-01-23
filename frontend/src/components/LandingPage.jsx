@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Globe, ChevronDown } from 'lucide-react';
+import { Globe, ChevronDown, Paperclip, FileText, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PulseMic from './PulseMic';
 import SuggestionChips from './SuggestionChips';
@@ -36,8 +36,10 @@ const LandingPage = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [availableVoices, setAvailableVoices] = useState([]);
+  const [userDocs, setUserDocs] = useState([]); // State for attached files
   
   const speechRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const t = UI_TEXT[selectedLang.code] || UI_TEXT["en-IN"];
   const isEnglish = selectedLang.code === "en-IN";
@@ -55,75 +57,60 @@ const LandingPage = ({
     window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
-  // --- HELPER: GET BEST VOICE (Prioritize Natural/Google) ---
+  // --- 2. FILE HANDLING ---
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setUserDocs(prev => [...prev, ...files]);
+    }
+  };
+
+  const removeDoc = (index) => {
+    setUserDocs(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // --- 3. AUDIO LOGIC ---
   const getBestVoice = (langCode) => {
     if (availableVoices.length === 0) return null;
-
-    // 1. Try finding a "Google" voice (Usually highest quality on Chrome/Android)
     let voice = availableVoices.find(v => v.lang === langCode && v.name.includes("Google"));
-    
-    // 2. If not, try "Microsoft" voice (High quality on Edge/Windows)
-    if (!voice) {
-      voice = availableVoices.find(v => v.lang === langCode && v.name.includes("Microsoft"));
-    }
-
-    // 3. If not, try exact language match
-    if (!voice) {
-      voice = availableVoices.find(v => v.lang === langCode);
-    }
-
-    // 4. Fallback to language base (e.g. 'hi' for 'hi-IN')
+    if (!voice) voice = availableVoices.find(v => v.lang === langCode && v.name.includes("Microsoft"));
+    if (!voice) voice = availableVoices.find(v => v.lang === langCode);
     if (!voice) {
       const shortCode = langCode.split('-')[0];
       voice = availableVoices.find(v => v.lang.startsWith(shortCode));
     }
-
     return voice;
   };
 
-  // --- SPEAK SPECIFIC TEXT (Used for Steps) ---
   const speakText = (text) => {
     window.speechSynthesis.cancel();
     if (!text) return;
-
     const utterance = new SpeechSynthesisUtterance(text);
     const voice = getBestVoice(selectedLang.code);
-
     if (voice) {
       utterance.voice = voice;
       utterance.lang = voice.lang;
     }
-
-    // Slow down Indian languages slightly for better clarity
     utterance.rate = selectedLang.code === 'en-IN' ? 1.0 : 0.85; 
-    
-    // Resume global playing state if it was paused, or just play
     window.speechSynthesis.speak(utterance);
   };
 
-  // --- TOGGLE AUDIO FOR SUMMARY (Play/Pause/Resume) ---
   const handleToggleAudio = () => {
     if (isPlaying) {
-      // PAUSE logic
       if (window.speechSynthesis.speaking) {
         window.speechSynthesis.pause();
         setIsPlaying(false);
       }
     } else {
-      // RESUME or START logic
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
         setIsPlaying(true);
       } else {
-        // Start Fresh
         window.speechSynthesis.cancel();
-        
         let textToSpeak = response.summary_speech;
-        // Fallback if summary is missing
         if (!textToSpeak) {
           textToSpeak = response.steps.slice(0, 2).map(s => s.text).join(". ");
         }
-        
         const utterance = new SpeechSynthesisUtterance(textToSpeak);
         const voice = getBestVoice(selectedLang.code);
         if (voice) {
@@ -131,9 +118,7 @@ const LandingPage = ({
             utterance.lang = voice.lang;
         }
         utterance.rate = selectedLang.code === 'en-IN' ? 1.0 : 0.85;
-
         utterance.onend = () => setIsPlaying(false);
-        
         speechRef.current = utterance;
         window.speechSynthesis.speak(utterance);
         setIsPlaying(true);
@@ -181,12 +166,13 @@ const LandingPage = ({
             onToggleAudio={handleToggleAudio}
             onSpeakStep={speakText}
             selectedLangCode={selectedLang.code}
+            userDocs={userDocs} // PASSING DOCS TO DASHBOARD
         />
       </div>
     );
   }
 
-  // --- MAIN LANDING VIEW (Unchanged) ---
+  // --- MAIN LANDING VIEW ---
   return (
     <div className="flex flex-col h-full w-full max-w-md mx-auto pt-6 relative overflow-hidden">
       
@@ -248,9 +234,49 @@ const LandingPage = ({
         <p className="text-gray-900 font-medium text-sm mt-4">{t.tap_mic}</p>
       </motion.div>
 
+      {/* MIC & UPLOAD SECTION */}
       <div className="flex-grow flex flex-col items-center justify-center -mt-6">
-        <PulseMic isListening={isListening} onClick={onStartListening} />
-        <div className="h-20 mt-8 w-full px-6 text-center flex items-center justify-center">
+        <div className="flex items-center gap-6">
+            <PulseMic isListening={isListening} onClick={onStartListening} />
+            
+            {/* DOCUMENT UPLOAD BUTTON */}
+            <div className="relative">
+                <input 
+                    type="file" 
+                    multiple 
+                    className="hidden" 
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                />
+                <button 
+                    onClick={() => fileInputRef.current.click()}
+                    className="p-4 bg-white rounded-full shadow-lg border border-gray-100 text-gray-500 hover:text-orange-600 hover:border-orange-200 transition-all active:scale-95"
+                    title="Attach Documents"
+                >
+                    <Paperclip size={24} />
+                </button>
+                {userDocs.length > 0 && (
+                    <div className="absolute -top-2 -right-2 bg-orange-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold">
+                        {userDocs.length}
+                    </div>
+                )}
+            </div>
+        </div>
+
+        {/* Selected Docs Preview */}
+        {userDocs.length > 0 && (
+            <div className="flex gap-2 mt-4 overflow-x-auto max-w-[80%] pb-2 no-scrollbar">
+                {userDocs.map((file, i) => (
+                    <div key={i} className="flex items-center gap-1 bg-white px-2 py-1 rounded-md border border-gray-200 text-xs text-gray-600 shadow-sm whitespace-nowrap">
+                        <FileText size={12} className="text-orange-500"/>
+                        {file.name.substring(0, 10)}...
+                        <button onClick={() => removeDoc(i)}><X size={12} className="hover:text-red-500"/></button>
+                    </div>
+                ))}
+            </div>
+        )}
+        
+        <div className="h-20 mt-4 w-full px-6 text-center flex items-center justify-center">
             <AnimatePresence mode="wait">
               {isListening ? (
                   <motion.p key="listening" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-orange-500 font-medium animate-pulse text-lg">{t.listening}</motion.p>

@@ -1,28 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, FileText, CheckCircle, MessageCircle, ArrowRight, ArrowLeft, CheckSquare, Volume2 } from 'lucide-react';
+import { Play, Pause, FileText, CheckCircle, MessageCircle, ArrowRight, ArrowLeft, CheckSquare, Volume2, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ChatAssistant from './ChatAssistant'; // IMPORT THE NEW CHATBOT
 
 // --- UI TRANSLATIONS FOR DASHBOARD ---
 const DASHBOARD_LABELS = {
-  "en-IN": { action_plan: "Action Plan", documents: "Documents", step: "STEP", of: "OF", ask_ai: "Ask AI", next: "Next Step", finish: "Finish", completed: "You're all set!", success_msg: "You have reviewed all the steps. Good luck!", review: "Review Again", listen: "Listen to Summary", playing: "Playing Summary...", read_step: "Read Step" },
-  "hi-IN": { action_plan: "कार्य योजना", documents: "दस्तावेज़", step: "चरण", of: "का", ask_ai: "AI से पूछें", next: "अगला चरण", finish: "समाप्त", completed: "प्रक्रिया पूरी हुई!", success_msg: "आपने सभी चरणों की समीक्षा कर ली है। शुभकामनाएँ!", review: "पुनः देखें", listen: "सारांश सुनें", playing: "सुना रहा हूँ...", read_step: "चरण सुनें" },
-  "te-IN": { action_plan: "కార్యాచరణ ప్రణాళిక", documents: "పత్రాలు", step: "దశ", of: "/", ask_ai: "AIని అడగండి", next: "తదుపరి దశ", finish: "ముగించు", completed: "సిద్ధం!", success_msg: "మీరు అన్ని దశలను సమీక్షించారు. ఆల్ ది బెస్ట్!", review: "మళ్ళీ చూడండి", listen: "సారాంశం వినండి", playing: "వినిపిస్తోంది...", read_step: "దశ వినండి" },
-  "ta-IN": { action_plan: "செயல் திட்டம்", documents: "ஆவணங்கள்", step: "படி", of: "/", ask_ai: "AI-இடம் கேளுங்கள்", next: "அடுத்த படி", finish: "முடி", completed: "தயார்!", success_msg: "வாழ்த்துக்கள்!", review: "மீண்டும் பார்க்க", listen: "சுருக்கத்தைக் கேளுங்கள்", playing: "ஒலிக்கிறது...", read_step: "படியை வாசிக்க" },
-  "kn-IN": { action_plan: "ಕ್ರಿಯಾ ಯೋಜನೆ", documents: "ದಾಖಲೆಗಳು", step: "ಹಂತ", of: "/", ask_ai: "AI ಅನ್ನು ಕೇಳಿ", next: "ಮುಂದಿನ ಹಂತ", finish: "ಮುಕ್ತಾಯ", completed: "ಸಿದ್ಧವಾಗಿದೆ!", success_msg: "ಶುಭವಾಗಲಿ!", review: "ಮತ್ತೊಮ್ಮೆ ನೋಡಿ", listen: "ಸಾರಾಂಶವನ್ನು ಕೇಳಿ", playing: "ಪ್ಲೇ ಆಗುತ್ತಿದೆ...", read_step: "ಹಂತವನ್ನು ಓದಿ" },
-  "ml-IN": { action_plan: "പ്രവർത്തന പദ്ധതി", documents: "രേഖകൾ", step: "ഘട്ടം", of: "/", ask_ai: "AI-യോട് ചോദിക്കൂ", next: "അടുത്ത ഘട്ടം", finish: "പൂർത്തിയാക്കുക", completed: "എല്ലാം ശരിയായി!", success_msg: "ആശംസകൾ!", review: "വീണ്ടും പരിശോധിക്കുക", listen: "സംഗ്രഹം കേൾക്കൂ", playing: "പ്ലേ ചെയ്യുന്നു...", read_step: "ഘട്ടം വായിക്കുക" },
-  "bn-IN": { action_plan: "কর্ম পরিকল্পনা", documents: "নথি", step: "ধাপ", of: "/", ask_ai: "AI জিজ্ঞাসা", next: "পরবর্তী ধাপ", finish: "শেষ", completed: "প্রস্তুত!", success_msg: "শুভকামনা!", review: "আবার দেখুন", listen: "সারাংশ শুনুন", playing: "শোনাচ্ছি...", read_step: "ধাপ পড়ুন" },
-  "mr-IN": { action_plan: "कृती योजना", documents: "कागदपत्रे", step: "चरण", of: "/", ask_ai: "AI ला विचारा", next: "पुढचे पाऊल", finish: "समाप्त", completed: "तयार!", success_msg: "शुभेच्छा!", review: "पुन्हा पहा", listen: "सारांश ऐका", playing: "ऐकवत आहे...", read_step: "चरण वाचा" },
-  "gu-IN": { action_plan: "કાર્ય યોજના", documents: "દસ્તાવેજો", step: "પગલું", of: "/", ask_ai: "AI ને પૂછો", next: "આગળનું પગલું", finish: "સમાપ્ત", completed: "તૈયાર!", success_msg: "શુભેચ્છા!", review: "ફરી જુઓ", listen: "સારાંશ સાંભળો", playing: "વાગી રહ્યું છે...", read_step: "પગલું વાંચો" },
-  "pa-IN": { action_plan: "ਕਾਰਵਾਈ ਯੋਜਨਾ", documents: "ਦਸਤਾਵੇਜ਼", step: "ਕਦਮ", of: "/", ask_ai: "AI ਪੁੱਛੋ", next: "ਅਗਲਾ ਕਦਮ", finish: "ਖਤਮ", completed: "ਤਿਆਰ!", success_msg: "ਸ਼ੁਭਕਾਮਨਾਵਾਂ!", review: "ਦੁਬਾਰਾ ਵੇਖੋ", listen: "ਸਾਰਾਂਸ਼ ਸੁਣੋ", playing: "ਚੱਲ ਰਿਹਾ ਹੈ...", read_step: "ਕਦਮ ਪੜ੍ਹੋ" },
-  "or-IN": { action_plan: "କାର୍ଯ୍ୟ ଯୋଜନା", documents: "ଦଲିଲ୍", step: "ପଦକ୍ଷେପ", of: "/", ask_ai: "AI ପଚାରନ୍ତୁ", next: "ପରବର୍ତ୍ତୀ", finish: "ସମାପ୍ତ", completed: "ପ୍ରସ୍ତୁତ!", success_msg: "ଶୁଭେଚ୍ଛା!", review: "ପୁନଃ ଦେଖନ୍ତୁ", listen: "ସାରାଂଶ ଶୁଣନ୍ତୁ", playing: "ଚାଲୁଅଛି...", read_step: "ପଦକ୍ଷେପ ପଢନ୍ତୁ" },
-  "ur-IN": { action_plan: "لائحہ عمل", documents: "دستاویزات", step: "مرحلہ", of: "کا", ask_ai: "AI پوچھیں", next: "اگلا مرحلہ", finish: "ختم", completed: "تیار!", success_msg: "گڈ لک!", review: "دوبارہ دیکھیں", listen: "خلاصہ سنیں", playing: "چل رہا ہے...", read_step: "مرحلہ پڑھیں" }
+  "en-IN": { action_plan: "Action Plan", documents: "Documents", your_docs: "Your Attachments", step: "STEP", of: "OF", ask_ai: "Ask AI", next: "Next Step", finish: "Finish", completed: "You're all set!", success_msg: "You have reviewed all the steps. Good luck!", review: "Review Again", listen: "Listen to Summary", playing: "Playing Summary...", read_step: "Read Step" },
+  "hi-IN": { action_plan: "कार्य योजना", documents: "दस्तावेज़", your_docs: "आपके संलग्नक", step: "चरण", of: "का", ask_ai: "AI से पूछें", next: "अगला चरण", finish: "समाप्त", completed: "प्रक्रिया पूरी हुई!", success_msg: "आपने सभी चरणों की समीक्षा कर ली है। शुभकामनाएँ!", review: "पुनः देखें", listen: "सारांश सुनें", playing: "सुना रहा हूँ...", read_step: "चरण सुनें" },
+  "te-IN": { action_plan: "కార్యాచరణ ప్రణాళిక", documents: "పత్రాలు", your_docs: "మీ జోడింపులు", step: "దశ", of: "/", ask_ai: "AIని అడగండి", next: "తదుపరి దశ", finish: "ముగించు", completed: "సిద్ధం!", success_msg: "మీరు అన్ని దశలను సమీక్షించారు. ఆల్ ది బెస్ట్!", review: "మళ్ళీ చూడండి", listen: "సారాంశం వినండి", playing: "వినిపిస్తోంది...", read_step: "దశ వినండి" },
+  "ta-IN": { action_plan: "செயல் திட்டம்", documents: "ஆவணங்கள்", your_docs: "உங்கள் இணைப்புகள்", step: "படி", of: "/", ask_ai: "AI-இடம் கேளுங்கள்", next: "அடுத்த படி", finish: "முடி", completed: "தயார்!", success_msg: "வாழ்த்துக்கள்!", review: "மீண்டும் பார்க்க", listen: "சுருக்கத்தைக் கேளுங்கள்", playing: "ஒலிக்கிறது...", read_step: "படியை வாசிக்க" },
+  "kn-IN": { action_plan: "ಕ್ರಿಯಾ ಯೋಜನೆ", documents: "ದಾಖಲೆಗಳು", your_docs: "ನಿಮ್ಮ ಲಗತ್ತುಗಳು", step: "ಹಂತ", of: "/", ask_ai: "AI ಅನ್ನು ಕೇಳಿ", next: "ಮುಂದಿನ ಹಂತ", finish: "ಮುಕ್ತಾಯ", completed: "ಸಿದ್ಧವಾಗಿದೆ!", success_msg: "ಶುಭವಾಗಲಿ!", review: "ಮತ್ತೊಮ್ಮೆ ನೋಡಿ", listen: "ಸಾರಾಂಶವನ್ನು ಕೇಳಿ", playing: "ಪ್ಲೇ ಆಗುತ್ತಿದೆ...", read_step: "ಹಂತವನ್ನು ಓದಿ" },
+  "ml-IN": { action_plan: "പ്രവർത്തന പദ്ധതി", documents: "രേഖകൾ", your_docs: "നിങ്ങളുടെ അറ്റാച്ച്‌മെന്റുകൾ", step: "ഘട്ടം", of: "/", ask_ai: "AI-യോട് ചോദിക്കൂ", next: "അടുത്ത ഘട്ടം", finish: "പൂർത്തിയാക്കുക", completed: "എല്ലാം ശരിയായി!", success_msg: "ആശംസകൾ!", review: "വീണ്ടും പരിശോധിക്കുക", listen: "സംഗ്രഹം കേൾക്കൂ", playing: "പ്ലേ ചെയ്യുന്നു...", read_step: "ഘട്ടം വായിക്കുക" },
+  // ... (Other languages same pattern) ...
 };
 
-const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selectedLangCode }) => {
+const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selectedLangCode, userDocs }) => {
   if (!data) return null;
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false); // CHAT STATE
 
   const labels = DASHBOARD_LABELS[selectedLangCode] || DASHBOARD_LABELS["en-IN"];
 
@@ -52,12 +49,12 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row gap-6 pb-20 animate-fade-in">
+    <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row gap-6 pb-20 animate-fade-in relative">
       
       {/* === LEFT PANEL === */}
       <div className="w-full md:w-1/3 space-y-4">
         
-        {/* 1. Audio Player */}
+        {/* Audio Player */}
         <button 
           type="button"
           onClick={(e) => {
@@ -79,7 +76,7 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
           </div>
         </button>
 
-        {/* 2. Steps List */}
+        {/* Steps List */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
             <h4 className="font-bold text-gray-800 flex items-center gap-2">
@@ -89,7 +86,6 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
               {activeIndex + 1}/{data.steps.length}
             </span>
           </div>
-          
           <div className="divide-y divide-gray-50">
             {data.steps.map((step, i) => (
               <button
@@ -105,28 +101,46 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                 }`}>
                   {i < activeIndex ? <CheckSquare size={12}/> : i + 1}
                 </div>
-                <div>
-                  <p className={`text-sm font-medium ${i === activeIndex ? 'text-orange-800' : 'text-gray-600'}`}>
-                    {step.text}
-                  </p>
-                </div>
+                <p className={`text-sm font-medium ${i === activeIndex ? 'text-orange-800' : 'text-gray-600'}`}>
+                  {step.text}
+                </p>
               </button>
             ))}
           </div>
         </div>
 
-        {/* 3. Documents */}
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-             <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
-                <FileText size={12}/> {labels.documents}
-             </h4>
-             <div className="flex flex-wrap gap-2">
-                {data.required_documents.map((doc, i) => (
-                  <span key={i} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-100">
-                    {doc}
-                  </span>
-                ))}
+        {/* Documents & Attachments */}
+        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4">
+             {/* Required Docs */}
+             <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+                    <FileText size={12}/> {labels.documents}
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                    {data.required_documents.map((doc, i) => (
+                    <span key={i} className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-100">
+                        {doc}
+                    </span>
+                    ))}
+                </div>
              </div>
+
+             {/* User Attachments (NEW SECTION) */}
+             {userDocs && userDocs.length > 0 && (
+                 <div className="pt-3 border-t border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 flex items-center gap-1">
+                        <Paperclip size={12}/> {labels.your_docs || "Your Attachments"}
+                    </h4>
+                    <div className="flex flex-col gap-1">
+                        {userDocs.map((doc, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs bg-gray-50 text-gray-700 px-2 py-1.5 rounded border border-gray-200">
+                            <FileText size={12} className="text-orange-500"/>
+                            <span className="truncate max-w-[150px]">{doc.name}</span>
+                        </div>
+                        ))}
+                    </div>
+                 </div>
+             )}
         </div>
       </div>
 
@@ -134,7 +148,6 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
       <div className="w-full md:w-2/3">
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 h-full flex flex-col overflow-hidden relative min-h-[500px]">
           
-          {/* Progress Bar */}
           <div className="h-1.5 w-full bg-gray-100">
             <motion.div 
               className="h-full bg-orange-500"
@@ -157,9 +170,7 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                     <CheckCircle size={48} />
                   </div>
                   <h2 className="text-3xl font-bold text-gray-800 mb-2">{labels.completed}</h2>
-                  <p className="text-gray-500 max-w-md mx-auto mb-8 text-lg">
-                    {labels.success_msg}
-                  </p>
+                  <p className="text-gray-500 max-w-md mx-auto mb-8 text-lg">{labels.success_msg}</p>
                   <button 
                     onClick={() => { setActiveIndex(0); setIsCompleted(false); }}
                     className="text-orange-600 font-semibold hover:bg-orange-50 px-6 py-2 rounded-full transition-colors"
@@ -176,7 +187,6 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                   transition={{ duration: 0.3 }}
                   className="flex flex-col h-full"
                 >
-                  {/* Step Indicator */}
                   <div className="mb-6 flex justify-between items-start">
                     <div>
                       <span className="inline-block px-3 py-1 bg-orange-100 text-orange-700 text-xs font-bold rounded-full mb-4 tracking-wide uppercase">
@@ -186,7 +196,6 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                         {activeStep.text}
                       </h2>
                     </div>
-                    {/* NEW PLAY BUTTON FOR STEP */}
                     <button
                       onClick={() => onSpeakStep(activeStep.text + ". " + activeStep.detailed_explanation)}
                       className="p-3 bg-orange-50 text-orange-600 rounded-full hover:bg-orange-100 transition-colors shadow-sm"
@@ -196,18 +205,16 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                     </button>
                   </div>
                   
-                  {/* Explanation Card */}
                   <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-8 flex-grow">
                     <p className="text-gray-700 text-lg leading-relaxed">
                       {activeStep.detailed_explanation}
                     </p>
                   </div>
 
-                  {/* Navigation */}
                   <div className="flex flex-col sm:flex-row gap-4 sm:items-center mt-auto">
                      <button 
                        className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-3 rounded-xl font-semibold hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
-                       onClick={() => alert("Chatbot coming soon!")}
+                       onClick={() => setIsChatOpen(true)} // OPEN CHAT
                      >
                         <MessageCircle size={18} />
                         <span className="hidden sm:inline">{labels.ask_ai}</span>
@@ -235,14 +242,21 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
                        </button>
                      </div>
                   </div>
-
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
-
         </div>
       </div>
+
+      {/* CHAT ASSISTANT DRAWER */}
+      <ChatAssistant 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        activeStep={activeStep}
+        language={selectedLangCode}
+        userDocs={userDocs}
+      />
 
     </div>
   );

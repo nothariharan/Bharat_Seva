@@ -10,10 +10,17 @@ app.use(express.json());
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Define Safety Settings Global
+const safetySettings = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
+
 // Helper function to extract JSON from messy text
 const cleanAndParseJSON = (text) => {
   try {
-    // 1. Find the first '{' and the last '}'
     const startIndex = text.indexOf('{');
     const endIndex = text.lastIndexOf('}');
 
@@ -21,17 +28,41 @@ const cleanAndParseJSON = (text) => {
       throw new Error("No JSON object found in response");
     }
 
-    // 2. Extract just the JSON part
     const jsonString = text.substring(startIndex, endIndex + 1);
-
-    // 3. Parse it
     return JSON.parse(jsonString);
   } catch (error) {
     console.error("JSON Parse Error. Raw Text was:", text);
-    throw error; // Re-throw to handle in the main route
+    throw error;
   }
 };
 
+// --- SMART GENERATION HELPER ---
+// Tries Flash-Lite (High Limit), falls back to Flash 2.0 if needed
+async function generateWithFallback(prompt) {
+  try {
+    // 1. Try Primary: Gemini 2.5 Flash Lite
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash-lite", 
+      safetySettings 
+    });
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    // 2. If Rate Limit (429) or Service Unavailable (503)
+    if (error.status === 429 || error.status === 503 || error.message.includes("429")) {
+      console.warn("⚠️ Flash-Lite Busy. Switching to Fallback (gemini-2.0-flash)...");
+      const fallbackModel = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash", 
+        safetySettings 
+      });
+      const fallbackResult = await fallbackModel.generateContent(prompt);
+      return fallbackResult.response.text();
+    }
+    throw error; // Throw real errors (like API Key issues)
+  }
+}
+
+// --- ROUTE 1: MAIN SEARCH (PLAN GENERATOR) ---
 app.post('/api/chat', async (req, res) => {
   const { query, language } = req.body;
   const userLang = language || "English";
@@ -39,18 +70,6 @@ app.post('/api/chat', async (req, res) => {
   console.log(`Received Query: "${query}" in Language: "${userLang}"`);
 
   try {
-    // Use Flash model
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-flash-latest",
-      // SAFETY SETTINGS: Prevent blocking of harmless queries
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      ]
-    });
-
     const prompt = `
       You are **"Bharat Seva"**, a highly experienced Indian public service assistant.
 
@@ -160,10 +179,8 @@ app.post('/api/chat', async (req, res) => {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    
-    // USE THE ROBUST PARSER
+    // USE SMART GENERATOR
+    const responseText = await generateWithFallback(prompt);
     const jsonData = cleanAndParseJSON(responseText);
 
     res.json(jsonData);
@@ -174,6 +191,40 @@ app.post('/api/chat', async (req, res) => {
       error: "Something went wrong",
       details: error.message 
     });
+  }
+});
+
+// --- ROUTE 2: CONTEXTUAL CHATBOT ---
+app.post('/api/chat-context', async (req, res) => {
+  const { query, currentStep, language, context } = req.body;
+  console.log(`Chat Query: "${query}" | Step: "${currentStep}"`);
+
+  try {
+    const prompt = `
+      You are **Bharat Sahayak**, a helpful Indian government service assistant.
+      
+      CONTEXT:
+      The user is currently navigating a process and is stuck on this specific step: "${currentStep}".
+      User Language: "${language}".
+      User Query: "${query}"
+      
+      INSTRUCTIONS:
+      1. Reply in "${language}".
+      2. Keep it short, encouraging, and specific to the step they are on.
+      3. Do not introduce yourself again, just answer the doubt.
+      
+      Output JSON ONLY: { "answer": "your answer here" }
+    `;
+
+    // USE SMART GENERATOR
+    const responseText = await generateWithFallback(prompt);
+    const jsonData = cleanAndParseJSON(responseText);
+
+    res.json(jsonData);
+
+  } catch (error) {
+    console.error("Chatbot Error:", error);
+    res.status(500).json({ error: "Failed to fetch answer" });
   }
 });
 

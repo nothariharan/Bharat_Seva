@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
+const twilio = require('twilio'); // IMPORT TWILIO
 
 const app = express();
 app.use(cors());
@@ -9,6 +10,9 @@ app.use(express.json());
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Initialize Twilio
+const twilioClient = twilio(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
 
 // Define Safety Settings Global
 const safetySettings = [
@@ -37,7 +41,6 @@ const cleanAndParseJSON = (text) => {
 };
 
 // --- SMART GENERATION HELPER ---
-// Tries Flash-Lite (High Limit), falls back to Flash 2.0 if needed
 async function generateWithFallback(prompt) {
   try {
     // 1. Try Primary: Gemini 2.5 Flash Lite
@@ -48,7 +51,7 @@ async function generateWithFallback(prompt) {
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (error) {
-    // 2. If Rate Limit (429) or Service Unavailable (503)
+    // 2. Fallback to Gemini 2.0 Flash
     if (error.status === 429 || error.status === 503 || error.message.includes("429")) {
       console.warn("⚠️ Flash-Lite Busy. Switching to Fallback (gemini-2.0-flash)...");
       const fallbackModel = genAI.getGenerativeModel({ 
@@ -58,7 +61,7 @@ async function generateWithFallback(prompt) {
       const fallbackResult = await fallbackModel.generateContent(prompt);
       return fallbackResult.response.text();
     }
-    throw error; // Throw real errors (like API Key issues)
+    throw error; 
   }
 }
 
@@ -94,47 +97,47 @@ app.post('/api/chat', async (req, res) => {
       --------------------------------------------------
 
       1. **Language Detection**
-         - Detect the actual language used by the user.
-         - Respond fully in the user's preferred language (or detected language if preference is unclear).
+          - Detect the actual language used by the user.
+          - Respond fully in the user's preferred language (or detected language if preference is unclear).
 
       2. **Intent Classification**
-         Classify into ONE:
-         - "grievance" → service not working, delay, rejection, corruption, complaint
-         - "scheme" → eligibility, benefits, application for government schemes
-         - "information" → how something works, where to go, rules, procedures
+          Classify into ONE:
+          - "grievance" → service not working, delay, rejection, corruption, complaint
+          - "scheme" → eligibility, benefits, application for government schemes
+          - "information" → how something works, where to go, rules, procedures
 
       3. **Context Understanding**
-         - Infer whether the issue is likely:
-           - Central Government
-           - State Government
-           - Local body (Panchayat / Municipality / Corporation)
-         - If state-specific information is required but state is unknown:
-           - Give a **general India-wide answer**
-           - Clearly mention that exact steps may vary by state
+          - Infer whether the issue is likely:
+            - Central Government
+            - State Government
+            - Local body (Panchayat / Municipality / Corporation)
+          - If state-specific information is required but state is unknown:
+            - Give a **general India-wide answer**
+            - Clearly mention that exact steps may vary by state
 
       4. **Solution Generation (Updated)**
-         - Give **clear, step-by-step actions**.
-         - **CRITICAL STEP COUNT RULE:** Determine the exact number of steps based on the task's real complexity.
-           - If it is simple (e.g., checking status), use 3-4 steps.
-           - If it is complex (e.g., applying for a new card, land mutation), **use 6-10 steps**.
-           - **Do NOT artificially restrict yourself to 4 steps.**
-         - For each step, provide a **detailed explanation** and a **visual description** (image prompt) so we can generate an educational image for the user.
-         - Assume the user has:
-           - A basic phone
-           - Possibly no email
-           - Limited technical knowledge
-         - Prefer **offline + online options**
-         - Avoid bureaucratic language
+          - Give **clear, step-by-step actions**.
+          - **CRITICAL STEP COUNT RULE:** Determine the exact number of steps based on the task's real complexity.
+            - If it is simple (e.g., checking status), use 3-4 steps.
+            - If it is complex (e.g., applying for a new card, land mutation), **use 6-10 steps**.
+            - **Do NOT artificially restrict yourself to 4 steps.**
+          - For each step, provide a **detailed explanation** and a **visual description** (image prompt) so we can generate an educational image for the user.
+          - Assume the user has:
+            - A basic phone
+            - Possibly no email
+            - Limited technical knowledge
+          - Prefer **offline + online options**
+          - Avoid bureaucratic language
 
       5. **Document Guidance**
-         - List only **commonly required documents**
-         - If unsure, say "May be required" instead of guessing
+          - List only **commonly required documents**
+          - If unsure, say "May be required" instead of guessing
 
       6. **Tone Rules**
-         - Calm
-         - Respectful
-         - Reassuring
-         - Simple enough to be spoken aloud
+          - Calm
+          - Respectful
+          - Reassuring
+          - Simple enough to be spoken aloud
 
       --------------------------------------------------
       STRICT OUTPUT FORMAT (IMPORTANT)
@@ -179,7 +182,6 @@ app.post('/api/chat', async (req, res) => {
       }
     `;
 
-    // USE SMART GENERATOR
     const responseText = await generateWithFallback(prompt);
     const jsonData = cleanAndParseJSON(responseText);
 
@@ -216,7 +218,6 @@ app.post('/api/chat-context', async (req, res) => {
       Output JSON ONLY: { "answer": "your answer here" }
     `;
 
-    // USE SMART GENERATOR
     const responseText = await generateWithFallback(prompt);
     const jsonData = cleanAndParseJSON(responseText);
 
@@ -225,6 +226,26 @@ app.post('/api/chat-context', async (req, res) => {
   } catch (error) {
     console.error("Chatbot Error:", error);
     res.status(500).json({ error: "Failed to fetch answer" });
+  }
+});
+
+// --- ROUTE 3: TWILIO WHATSAPP INTEGRATION ---
+app.post('/api/send-whatsapp', async (req, res) => {
+  const { phoneNumber, message } = req.body;
+  console.log(`Sending WhatsApp to ${phoneNumber}`);
+
+  try {
+    const response = await twilioClient.messages.create({
+      body: `🇮🇳 *Bharat Seva Action Plan*\n\n${message}\n\n_Generated by AI for Rural India_`,
+      from: 'whatsapp:+14155238886', // This is the Twilio Sandbox Number
+      to: `whatsapp:${phoneNumber}`
+    });
+    
+    console.log("WhatsApp sent:", response.sid);
+    res.json({ success: true, sid: response.sid });
+  } catch (error) {
+    console.error("Twilio Error:", error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -5,7 +5,11 @@ const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@googl
 const twilio = require('twilio'); // IMPORT TWILIO
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: '*', // Allow ANY frontend
+    methods: ['GET', 'POST', 'OPTIONS'], // Allow these methods
+    allowedHeaders: ['Content-Type', 'Authorization'] // Allow these headers
+}));
 app.use(express.json());
 
 // Initialize Gemini

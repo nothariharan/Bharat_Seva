@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ChatAssistant from './ChatAssistant';
 
 // --- IMPORTS FOR PDF GENERATION ---
-// We use pdfmake because your logic handles language/layout via JSON definitions
 import pdfMake from "pdfmake/build/pdfmake";
 import pdfFonts from "pdfmake/build/vfs_fonts";
 
@@ -43,7 +42,6 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
   const [phoneNumber, setPhoneNumber] = useState("");
   const [sendingWA, setSendingWA] = useState(false);
   
-  // Ref not strictly needed for pdfMake, but kept if you use it for other things
   const dashboardRef = useRef(null);
 
   const labels = DASHBOARD_LABELS[selectedLangCode] || DASHBOARD_LABELS["en-IN"];
@@ -70,116 +68,45 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
     }
   };
 
- // --- PDF DOWNLOAD HANDLER (USING PDFMAKE FOR MULTILINGUAL SUPPORT) ---
+  // --- PDF DOWNLOAD HANDLER (Kept as requested) ---
   const handleDownloadPDF = () => {
-    // Build document content array
     const content = [];
 
     // Header
-    content.push({
-      text: 'BharatSeva Action Plan',
-      style: 'header',
-      alignment: 'center',
-      margin: [0, 0, 0, 20]
-    });
-
-    // Title
-    content.push({
-      text: labels.action_plan,
-      style: 'title',
-      color: '#f97316',
-      margin: [0, 0, 0, 10]
-    });
+    content.push({ text: 'BharatSeva Action Plan', style: 'header', alignment: 'center', margin: [0, 0, 0, 20] });
+    content.push({ text: labels.action_plan, style: 'title', color: '#f97316', margin: [0, 0, 0, 10] });
 
     // Required Documents Section
-    content.push({
-      text: labels.required_docs + ':',
-      style: 'sectionHeader',
-      margin: [0, 10, 0, 5]
-    });
-
-    const docList = data.required_documents.map(doc => ({
-      text: `• ${doc}`,
-      style: 'listItem',
-      margin: [10, 2, 0, 2]
-    }));
+    content.push({ text: labels.required_docs + ':', style: 'sectionHeader', margin: [0, 10, 0, 5] });
+    const docList = data.required_documents.map(doc => ({ text: `• ${doc}`, style: 'listItem', margin: [10, 2, 0, 2] }));
     content.push(...docList);
 
-    // User Documents (if any)
+    // User Documents
     if (userDocs && userDocs.length > 0) {
-      content.push({
-        text: labels.your_docs + ':',
-        style: 'sectionHeader',
-        margin: [0, 10, 0, 5]
-      });
-
-      const userDocList = userDocs.map(doc => ({
-        text: `• ${doc.name}`,
-        style: 'listItem',
-        margin: [10, 2, 0, 2]
-      }));
+      content.push({ text: labels.your_docs + ':', style: 'sectionHeader', margin: [0, 10, 0, 5] });
+      const userDocList = userDocs.map(doc => ({ text: `• ${doc.name}`, style: 'listItem', margin: [10, 2, 0, 2] }));
       content.push(...userDocList);
     }
 
     // Divider
-    content.push({
-      canvas: [
-        {
-          type: 'line',
-          x1: 0,
-          y1: 10,
-          x2: 515,
-          y2: 10,
-          lineWidth: 1,
-          lineColor: '#e5e7eb'
-        }
-      ],
-      margin: [0, 10, 0, 15]
-    });
+    content.push({ canvas: [{ type: 'line', x1: 0, y1: 10, x2: 515, y2: 10, lineWidth: 1, lineColor: '#e5e7eb' }], margin: [0, 10, 0, 15] });
 
-    // All Steps
+    // Steps
     data.steps.forEach((step, index) => {
-      // Step badge and title
       content.push({
         columns: [
           {
             width: 25,
             stack: [
-              {
-                canvas: [
-                  {
-                    type: 'ellipse',
-                    x: 12,
-                    y: 8,
-                    r1: 10,
-                    r2: 10,
-                    color: '#f97316'
-                  }
-                ]
-              },
-              {
-                text: (index + 1).toString(),
-                absolutePosition: { x: 8, y: undefined },
-                color: '#ffffff',
-                fontSize: 10,
-                bold: true,
-                margin: [-4, -14, 0, 0]
-              }
+              { canvas: [{ type: 'ellipse', x: 12, y: 8, r1: 10, r2: 10, color: '#f97316' }] },
+              { text: (index + 1).toString(), absolutePosition: { x: 8, y: undefined }, color: '#ffffff', fontSize: 10, bold: true, margin: [-4, -14, 0, 0] }
             ]
           },
           {
             width: '*',
             stack: [
-              {
-                text: `${labels.step} ${index + 1}: ${step.text}`,
-                style: 'stepTitle',
-                margin: [0, -2, 0, 5]
-              },
-              {
-                text: step.detailed_explanation,
-                style: 'stepContent',
-                margin: [0, 0, 0, 15]
-              }
+              { text: `${labels.step} ${index + 1}: ${step.text}`, style: 'stepTitle', margin: [0, -2, 0, 5] },
+              { text: step.detailed_explanation, style: 'stepContent', margin: [0, 0, 0, 15] }
             ]
           }
         ],
@@ -188,11 +115,7 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
     });
 
     // Footer
-    const timestamp = new Date().toLocaleString(selectedLangCode, {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    });
-
+    const timestamp = new Date().toLocaleString(selectedLangCode, { dateStyle: 'medium', timeStyle: 'short' });
     content.push({
       text: [
         { text: `Generated on ${timestamp}`, fontSize: 8, color: '#9ca3af' },
@@ -202,68 +125,59 @@ const ActionDashboard = ({ data, isPlaying, onToggleAudio, onSpeakStep, selected
       margin: [0, 20, 0, 0]
     });
 
-    // Document definition
     const docDefinition = {
       content: content,
       styles: {
-        header: {
-          fontSize: 22,
-          bold: true,
-          color: '#ffffff',
-          background: '#f97316',
-          fillColor: '#f97316',
-          margin: [0, 0, 0, 0]
-        },
-        title: {
-          fontSize: 18,
-          bold: true
-        },
-        sectionHeader: {
-          fontSize: 13,
-          bold: true,
-          color: '#000000'
-        },
-        listItem: {
-          fontSize: 11,
-          color: '#4b5563'
-        },
-        stepTitle: {
-          fontSize: 14,
-          bold: true,
-          color: '#1f2937'
-        },
-        stepContent: {
-          fontSize: 11,
-          color: '#374151',
-          lineHeight: 1.4
-        }
+        header: { fontSize: 22, bold: true, color: '#ffffff', background: '#f97316', fillColor: '#f97316' },
+        title: { fontSize: 18, bold: true },
+        sectionHeader: { fontSize: 13, bold: true, color: '#000000' },
+        listItem: { fontSize: 11, color: '#4b5563' },
+        stepTitle: { fontSize: 14, bold: true, color: '#1f2937' },
+        stepContent: { fontSize: 11, color: '#374151', lineHeight: 1.4 }
       },
-      defaultStyle: {
-        font: 'Roboto'
-      },
+      defaultStyle: { font: 'Roboto' },
       pageMargins: [40, 60, 40, 40],
       background: function(currentPage, pageSize) {
-        if (currentPage === 1) {
-          return {
-            canvas: [
-              {
-                type: 'rect',
-                x: 0,
-                y: 0,
-                w: pageSize.width,
-                h: 50,
-                color: '#f97316'
-              }
-            ]
-          };
-        }
-        return null;
+        return currentPage === 1 ? { canvas: [{ type: 'rect', x: 0, y: 0, w: pageSize.width, h: 50, color: '#f97316' }] } : null;
       }
     };
 
-    // Generate and download
     const langName = selectedLangCode.split('-')[0];
     pdfMake.createPdf(docDefinition).download(`BharatSeva_Plan_${langName}_${Date.now()}.pdf`);
+  };
+
+  // --- WHATSAPP SEND HANDLER ---
+  const handleSendWhatsApp = async () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      alert("Please enter a valid phone number");
+      return;
+    }
+    setSendingWA(true);
+    
+    const message = `*${labels.action_plan}*\n\n*${labels.step} ${activeIndex + 1}:* ${activeStep.text}\n\n*${labels.instructions}:*\n${activeStep.detailed_explanation}\n\n*${labels.required_docs}:*\n${data.required_documents.join(', ')}`;
+
+    try {
+      const res = await fetch('http://localhost:3000/api/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phoneNumber: `+91${phoneNumber}`,
+          message: message
+        })
+      });
+      
+      const result = await res.json();
+      if (result.success) {
+        alert("Message sent! (Check sandbox)");
+        setShowWhatsApp(false);
+      } else {
+        alert("Failed. Ensure you joined the Twilio Sandbox.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Server connection failed.");
+    }
+    setSendingWA(false);
   };
 
   return (

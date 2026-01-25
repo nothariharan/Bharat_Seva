@@ -22,8 +22,10 @@ const App = () => {
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Point to your local backend
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000/api/chat"; 
+  // --- FIX: Append /api/chat to the base URL ---
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL 
+    ? `${import.meta.env.VITE_BACKEND_URL}/api/chat` 
+    : "http://localhost:3000/api/chat";
 
   // --- CORE LOGIC ---
 

@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Mic, Bot, Paperclip, Loader2, FileText } from 'lucide-react'; // Removed Trash2 unused import
+import { X, Send, Mic, Bot, Paperclip, Loader2, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { endpoints } from '../config/api';
 
 const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [localAttachments, setLocalAttachments] = useState([]); 
-  
+  const [localAttachments, setLocalAttachments] = useState([]);
+
   const scrollRef = useRef(null);
-  const fileInputRef = useRef(null); 
+  const fileInputRef = useRef(null);
 
   // --- AUTO SCROLL ---
   useEffect(() => {
@@ -21,12 +22,28 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const docCount = (userDocs?.length || 0) + localAttachments.length;
+
+      const greetings = {
+        'hi-IN': 'क्या आपको इसमें मदद चाहिए',
+        'te-IN': 'మీకు దీనితో సహాయం కావాలా',
+        'ta-IN': 'உங்களுக்கு இதில் உதவி தேவையா',
+        'bn-IN': 'আপনার কি এতে সাহায্য দরকার',
+        'en-IN': 'Do you need help with'
+      };
+      const greetPref = greetings[language] || greetings['en-IN'];
+      const topic = activeStep?.title || activeStep?.text || "this step";
+
+      let msgText = `${greetPref} "${topic}"?`;
+      if (docCount > 0) {
+        msgText += `\n\nI see ${docCount} documents attached. What specific doubt do you have?`;
+      }
+
       setMessages([{
         role: 'bot',
-        text: `Namaste! I am ready to help you with "${activeStep?.text}". \n\nI see ${docCount} documents attached. What specific doubt do you have?`
+        text: msgText
       }]);
     }
-  }, [isOpen, activeStep, userDocs, localAttachments]);
+  }, [isOpen, activeStep, userDocs, localAttachments, language]);
 
   // --- FILE HANDLING ---
   const handleFileSelect = (e) => {
@@ -48,7 +65,7 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
     recognition.interimResults = false;
 
     recognition.onstart = () => setIsRecording(true);
-    
+
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setInput(prev => prev + " " + transcript);
@@ -71,30 +88,30 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
     const userMsg = { role: 'user', text: input, attachments: localAttachments };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
-    setLocalAttachments([]); 
+    setLocalAttachments([]);
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:3000/api/chat-context', {
+      const res = await fetch(endpoints.contextChat, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          query: userMsg.text,
-          currentStep: activeStep?.text,
-          language: language, 
-          context: messages.slice(-3) 
+          message: userMsg.text,
+          language: language,
+          currentStep: { title: activeStep?.text, description: activeStep?.description || '' },
+          actionPlanTitle: "Bharat Seva Action Plan"
         })
       });
-      
+
       const data = await res.json();
-      setMessages(prev => [...prev, { role: 'bot', text: data.answer }]);
+      setMessages(prev => [...prev, { role: 'bot', text: data.reply }]);
 
     } catch (err) {
       console.error(err);
       setTimeout(() => {
-        setMessages(prev => [...prev, { 
-            role: 'bot', 
-            text: `(Offline Mode) I can't reach the server right now, but I understood your query in ${language}. Please ensure backend is running.` 
+        setMessages(prev => [...prev, {
+          role: 'bot',
+          text: `(Offline Mode) I can't reach the server right now, but I understood your query in ${language}. Please ensure backend is running.`
         }]);
         setLoading(false);
       }, 1000);
@@ -106,13 +123,13 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }}
             onClick={onClose}
             className="fixed inset-0 bg-black z-40 backdrop-blur-sm"
           />
-          
-          <motion.div 
+
+          <motion.div
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed right-0 top-0 bottom-0 w-full md:w-[450px] bg-white shadow-2xl z-50 flex flex-col border-l border-gray-100"
@@ -121,11 +138,11 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-orange-50/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-                    <Bot size={24} />
+                  <Bot size={24} />
                 </div>
                 <div>
-                    <h3 className="font-bold text-gray-800">Bharat Sahayak</h3>
-                    <p className="text-xs text-gray-500">Contextual AI Assistant</p>
+                  <h3 className="font-bold text-gray-800">Bharat Sahayak</h3>
+                  <p className="text-xs text-gray-500">Contextual AI Assistant</p>
                 </div>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
@@ -137,11 +154,10 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
             <div ref={scrollRef} className="flex-grow overflow-y-auto p-4 space-y-4 bg-gray-50/20">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
-                    msg.role === 'user' 
-                      ? 'bg-gray-900 text-white rounded-tr-none' 
-                      : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
-                  }`}>
+                  <div className={`max-w-[85%] p-3.5 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user'
+                    ? 'bg-gray-900 text-white rounded-tr-none'
+                    : 'bg-white border border-gray-100 text-gray-800 rounded-tl-none'
+                    }`}>
                     {msg.text}
                   </div>
                   {msg.attachments && msg.attachments.length > 0 && (
@@ -155,11 +171,11 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
                   )}
                 </div>
               ))}
-              
+
               {loading && (
                 <div className="flex justify-start">
                   <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm">
-                    <Loader2 size={18} className="animate-spin text-orange-500"/>
+                    <Loader2 size={18} className="animate-spin text-orange-500" />
                   </div>
                 </div>
               )}
@@ -167,36 +183,36 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
 
             {/* Input Area */}
             <div className="p-4 border-t border-gray-100 bg-white">
-              
+
               {/* Attachments Preview */}
               {(localAttachments.length > 0 || (userDocs && userDocs.length > 0)) && (
                 <div className="flex items-center gap-2 mb-3 overflow-x-auto no-scrollbar pb-1">
-                   {userDocs && userDocs.map((doc, i) => (
-                      <div key={`global-${i}`} className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded text-xs text-orange-700 border border-orange-100 whitespace-nowrap">
-                          <FileText size={10} /> {doc.name.substring(0, 10)}...
-                      </div>
-                   ))}
-                   {localAttachments.map((doc, i) => (
-                      <div key={`local-${i}`} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 border border-gray-200 whitespace-nowrap">
-                          <FileText size={10} /> {doc.name.substring(0, 10)}...
-                          <button onClick={() => setLocalAttachments(prev => prev.filter((_, idx) => idx !== i))}><X size={10}/></button>
-                      </div>
-                   ))}
+                  {userDocs && userDocs.map((doc, i) => (
+                    <div key={`global-${i}`} className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded text-xs text-orange-700 border border-orange-100 whitespace-nowrap">
+                      <FileText size={10} /> {doc.name.substring(0, 10)}...
+                    </div>
+                  ))}
+                  {localAttachments.map((doc, i) => (
+                    <div key={`local-${i}`} className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded text-xs text-gray-600 border border-gray-200 whitespace-nowrap">
+                      <FileText size={10} /> {doc.name.substring(0, 10)}...
+                      <button onClick={() => setLocalAttachments(prev => prev.filter((_, idx) => idx !== i))}><X size={10} /></button>
+                    </div>
+                  ))}
                 </div>
               )}
 
               {/* Input Controls - Fixed Alignment */}
               <div className="flex items-end gap-2">
-                <input 
-                  type="file" 
-                  multiple 
-                  ref={fileInputRef} 
-                  className="hidden" 
+                <input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
                   onChange={handleFileSelect}
                 />
-                
+
                 {/* Clip Button */}
-                <button 
+                <button
                   onClick={() => fileInputRef.current.click()}
                   className="p-3 bg-gray-50 rounded-xl text-gray-500 hover:text-orange-600 hover:bg-orange-50 transition-colors border border-gray-200 flex-shrink-0"
                   style={{ height: '46px', width: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -206,42 +222,41 @@ const ChatAssistant = ({ isOpen, onClose, activeStep, language, userDocs }) => {
 
                 {/* Text Area */}
                 <div className="flex-grow relative">
-                    <textarea 
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            if(e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend();
-                            }
-                        }}
-                        placeholder={`Ask in ${language?.split('-')[0] || 'English'}...`}
-                        className="w-full p-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-100 border border-gray-200 resize-none leading-relaxed"
-                        style={{ minHeight: '46px', maxHeight: '100px', height: '46px' }} 
-                    />
+                  <textarea
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSend();
+                      }
+                    }}
+                    placeholder={`Ask in ${language?.split('-')[0] || 'English'}...`}
+                    className="w-full p-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-orange-100 border border-gray-200 resize-none leading-relaxed"
+                    style={{ minHeight: '46px', maxHeight: '100px', height: '46px' }}
+                  />
                 </div>
-                
+
                 {/* Send / Mic Button */}
                 {input.trim() || localAttachments.length > 0 ? (
-                    <button 
-                      onClick={handleSend}
-                      className="p-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors shadow-lg active:scale-95 flex-shrink-0"
-                      style={{ height: '46px', width: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <Send size={20} />
-                    </button>
+                  <button
+                    onClick={handleSend}
+                    className="p-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors shadow-lg active:scale-95 flex-shrink-0"
+                    style={{ height: '46px', width: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Send size={20} />
+                  </button>
                 ) : (
-                    <button 
-                      onClick={startListening}
-                      className={`p-3 rounded-xl transition-colors shadow-lg active:scale-95 flex-shrink-0 ${
-                        isRecording 
-                          ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-100' 
-                          : 'bg-gray-900 text-white hover:bg-gray-800'
+                  <button
+                    onClick={startListening}
+                    className={`p-3 rounded-xl transition-colors shadow-lg active:scale-95 flex-shrink-0 ${isRecording
+                      ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-100'
+                      : 'bg-gray-900 text-white hover:bg-gray-800'
                       }`}
-                      style={{ height: '46px', width: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <Mic size={20} />
-                    </button>
+                    style={{ height: '46px', width: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Mic size={20} />
+                  </button>
                 )}
               </div>
             </div>

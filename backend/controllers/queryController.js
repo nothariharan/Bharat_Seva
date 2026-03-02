@@ -1,5 +1,6 @@
 const { invokeModel } = require('../services/bedrockService');
 const { buildQueryPrompt } = require('../prompts/queryPrompt');
+const { getMatchingCommunitiesInternal } = require('../services/communityService');
 
 const processQuery = async (req, res) => {
     try {
@@ -9,23 +10,33 @@ const processQuery = async (req, res) => {
             return res.status(400).json({ error: 'Transcript is required' });
         }
 
+        const state = userContext.state || 'India';
+        const district = userContext.district || '';
+
         const prompt = buildQueryPrompt(
             transcript,
             language,
-            userContext.state || 'India',
-            userContext.district || 'your district',
+            state,
+            district,
             userContext.latitude,
             userContext.longitude
         );
 
-        // Use Nova Pro for main intent routing
-        const rawResponse = await invokeModel(prompt, true);
+        // Run AI intent and Community matching in parallel
+        const [rawAIResponse, matchingCommunities] = await Promise.all([
+            invokeModel(prompt, true),
+            getMatchingCommunitiesInternal(state, district, transcript)
+        ]);
 
         // Strip any accidental markdown fences
-        const cleaned = rawResponse.replace(/```json|```/g, '').trim();
+        const cleaned = rawAIResponse.replace(/```json|```/g, '').trim();
         const actionPlan = JSON.parse(cleaned);
 
-        return res.status(200).json(actionPlan);
+        // Attach matching communities
+        return res.status(200).json({
+            ...actionPlan,
+            matchingCommunities
+        });
 
     } catch (error) {
         console.error('Query processing error:', error);
@@ -36,4 +47,18 @@ const processQuery = async (req, res) => {
     }
 };
 
-module.exports = { processQuery };
+const notifyCitizen = async (req, res) => {
+    try {
+        const { phoneNumber, orgName } = req.body;
+
+        // This would use the twilioClient defined in server.js
+        // For now, we simulate the success response
+        console.log(`[Twilio Mock] Sending SMS to ${phoneNumber}: Bharat Seva: The ${orgName} has received your request and will call you shortly.`);
+
+        res.json({ success: true, message: 'Notification sent to citizen' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to send notification' });
+    }
+};
+
+module.exports = { processQuery, notifyCitizen };

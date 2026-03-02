@@ -1,0 +1,59 @@
+[
+  {
+    "id": "nas-001",
+    "name": "Nashik Kisan Seva Kendra",
+    "type": "NGO",
+    "description": "We help farmers in Nashik with government schemes, seeds, and digital documentation.",
+    "coverageStates": [
+      "Maharashtra"
+    ],
+    "coverageDistricts": [
+      "Nashik"
+    ],
+    "topics": [
+      "Farmer Welfare",
+      "Financial Inclusion"
+    ],
+    "resources": [
+      {
+        "label": "PM-KISAN Status Check",
+        "url": "https://pmkisan.gov.in/"
+      },
+      {
+        "label": "Nashik Agriculture Guide (PDF)",
+        "url": "https://example.com/nashik-guide.pdf"
+      }
+    ],
+    "contactPhone": "9876543210",
+    "active": true
+  },
+  {
+    "id": "del-002",
+    "name": "Delhi Legal Aid Clinic",
+    "type": "Legal Aid",
+    "description": "Pro-bono legal services for citizens in Delhi NCR. Specializing in labour rights and housing.",
+    "coverageStates": [
+      "Delhi"
+    ],
+    "coverageDistricts": [
+      "Central Delhi",
+      "North Delhi",
+      "South Delhi",
+      "East Delhi",
+      "West Delhi"
+    ],
+    "topics": [
+      "Legal Aid",
+      "Labour Rights",
+      "Housing"
+    ],
+    "resources": [
+      {
+        "label": "Know Your Rights Handbook",
+        "url": "https://example.com/rights.pdf"
+      }
+    ],
+    "contactPhone": "9988776655",
+    "active": true
+  }
+]

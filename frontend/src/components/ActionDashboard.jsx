@@ -7,12 +7,14 @@ import SmartFormAssistant from './SmartFormAssistant';
 import VoiceSignature from './VoiceSignature';
 import LastMileCard from './LastMileCard';
 import ChatSidebar from './ChatSidebar';
+import CommunityCard from './CommunityCard';
 import { endpoints } from '../config/api';
 
 const ActionDashboard = ({ response, language, onNewSearch }) => {
   const [view, setView] = useState('main'); // 'main', 'form', 'signature'
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeStepId, setActiveStepId] = useState(null);
+  const [activeFormId, setActiveFormId] = useState(null);
   const [locationData, setLocationData] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -75,8 +77,9 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
     setIsExporting(false);
   };
 
-  const handleFormClick = (stepId) => {
+  const handleFormClick = (formId, stepId) => {
     setActiveStepId(stepId);
+    setActiveFormId(formId);
     setView('form');
   };
 
@@ -173,6 +176,24 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
             <DiagnosticTicket analysis={response.problemAnalysis} language={language} />
           )}
 
+          {/* Community Matches Section */}
+          {response.matchingCommunities && response.matchingCommunities.length > 0 && (
+            <div className="z-10">
+              <h3 className="text-sm font-bold text-orange-600 uppercase tracking-widest mb-3 ml-1 bg-white inline-block px-3 py-1 rounded-full shadow-sm">
+                Local Communities Found
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {response.matchingCommunities.map(community => (
+                  <CommunityCard
+                    key={community.id}
+                    community={community}
+                    onAskQuery={() => setView('main')} // Placeholder
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Audio Summary Card */}
           <div className="bg-white/95 backdrop-blur p-6 rounded-xl border border-orange-100 shadow-sm flex items-start gap-4 z-10">
             <button
@@ -250,7 +271,11 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
 
       {view === 'form' && (
         <div className="w-full max-w-6xl mt-4">
-          <SmartFormAssistant language={{ code: language }} onComplete={handleFormComplete} />
+          <SmartFormAssistant
+            language={{ code: language }}
+            formId={activeFormId}
+            onComplete={handleFormComplete}
+          />
         </div>
       )}
 

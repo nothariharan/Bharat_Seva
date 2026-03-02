@@ -4,21 +4,80 @@ import Webcam from 'react-webcam';
 import axios from 'axios';
 import { endpoints } from '../config/api';
 
-const formFields = [
-    { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
-    { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 160, w: 200, h: 25 },
-    { id: "address", label: { "en-IN": "Address", "hi-IN": "पता" }, x: 150, y: 200, w: 300, h: 25 },
-    { id: "idNumber", label: { "en-IN": "Aadhaar / ID No.", "hi-IN": "आधार नंबर" }, x: 150, y: 240, w: 200, h: 25 }
-];
+const formConfigs = {
+    'aadhar_update_v1': {
+        name: "Aadhaar Update",
+        expectedDocumentType: 'aadhaar',
+        fields: [
+            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
+            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 160, w: 200, h: 25 },
+            { id: "address", label: { "en-IN": "Address", "hi-IN": "पता" }, x: 150, y: 200, w: 300, h: 25 },
+            { id: "idNumber", label: { "en-IN": "Aadhaar Number", "hi-IN": "आधार नंबर" }, x: 150, y: 240, w: 200, h: 25 }
+        ],
+        questions: [
+            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
+            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
+            { fieldId: "address", q: { "en-IN": "Where do you live?", "hi-IN": "आपका पूरा पता क्या है?" } },
+            { fieldId: "idNumber", q: { "en-IN": "What is your Aadhaar number?", "hi-IN": "आपका आधार नंबर क्या है?" } }
+        ],
+        scanMsg: { "en-IN": "Scan Aadhaar to auto-fill", "hi-IN": "आधार स्कैन करें" },
+        mapping: (ext) => ({
+            name: ext.name,
+            dob: ext.dob,
+            address: ext.address,
+            idNumber: ext.uid_last4 ? "XXXX-XXXX-" + ext.uid_last4 : undefined
+        })
+    },
+    'pan_49a_v1': {
+        name: "PAN Card Application",
+        expectedDocumentType: 'pan',
+        fields: [
+            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
+            { id: "fatherName", label: { "en-IN": "Father's Name", "hi-IN": "पिता का नाम" }, x: 150, y: 160, w: 200, h: 25 },
+            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 200, w: 200, h: 25 },
+            { id: "panNumber", label: { "en-IN": "Existing PAN (if any)", "hi-IN": "पैन नंबर" }, x: 150, y: 240, w: 200, h: 25 }
+        ],
+        questions: [
+            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
+            { fieldId: "fatherName", q: { "en-IN": "What is your father's name?", "hi-IN": "आपके पिता का नाम क्या है?" } },
+            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
+            { fieldId: "panNumber", q: { "en-IN": "What is your PAN number?", "hi-IN": "आपका पैन नंबर क्या है?" } }
+        ],
+        scanMsg: { "en-IN": "Scan PAN Card to auto-fill", "hi-IN": "पैन कार्ड स्कैन करें" },
+        mapping: (ext) => ({
+            name: ext.name,
+            dob: ext.dob,
+            panNumber: ext.pan_number,
+            fatherName: ext.father_name
+        })
+    },
+    'voter_form_8_v1': {
+        name: "Voter ID Correction",
+        expectedDocumentType: 'voter_id',
+        fields: [
+            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
+            { id: "epicNumber", label: { "en-IN": "EPIC Number", "hi-IN": "पहचान पत्र संख्या" }, x: 150, y: 160, w: 200, h: 25 },
+            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 200, w: 200, h: 25 },
+            { id: "address", label: { "en-IN": "New Address", "hi-IN": "पता" }, x: 150, y: 240, w: 300, h: 25 }
+        ],
+        questions: [
+            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
+            { fieldId: "epicNumber", q: { "en-IN": "What is your Voter ID EPIC number?", "hi-IN": "आपकी पहचान पत्र संख्या क्या है?" } },
+            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
+            { fieldId: "address", q: { "en-IN": "What is your correct address?", "hi-IN": "आपका सही पता क्या है?" } }
+        ],
+        scanMsg: { "en-IN": "Scan Voter ID to auto-fill", "hi-IN": "पहचान पत्र स्कैन करें" },
+        mapping: (ext) => ({
+            name: ext.name,
+            epicNumber: ext.epic_number,
+            dob: ext.dob,
+            address: ext.address
+        })
+    }
+};
 
-const mockQuestions = [
-    { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
-    { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
-    { fieldId: "address", q: { "en-IN": "Where do you live?", "hi-IN": "आपका पूरा पता क्या है?" } },
-    { fieldId: "idNumber", q: { "en-IN": "What is your Aadhaar number?", "hi-IN": "आपका आधार नंबर क्या है?" } }
-];
-
-const SmartFormAssistant = ({ language, onComplete }) => {
+const SmartFormAssistant = ({ language, formId = 'aadhar_update_v1', onComplete }) => {
+    const config = formConfigs[formId] || formConfigs['aadhar_update_v1'];
     const [currentQIndex, setCurrentQIndex] = useState(0);
     const [answers, setAnswers] = useState({});
     const [isRecording, setIsRecording] = useState(false);
@@ -34,22 +93,23 @@ const SmartFormAssistant = ({ language, onComplete }) => {
 
     useEffect(() => {
         if (mode === 'scan') {
-            speak(language.code === "en-IN" ? "Do you have your Aadhaar card? We can scan it." : "क्या आपके पास आधार कार्ड है? हम उसे स्कैन कर सकते हैं।");
-        } else if (mode === 'qa' && currentQIndex < mockQuestions.length) {
-            speak(mockQuestions[currentQIndex].q[language.code] || mockQuestions[currentQIndex].q["hi-IN"]);
+            const msg = config.scanMsg[language.code] || config.scanMsg["hi-IN"];
+            speak(language.code === "en-IN" ? `Do you have your ${config.name}? We can scan it.` : `क्या आपके पास ${config.name} है? हम उसे स्कैन कर सकते हैं।`);
+        } else if (mode === 'qa' && currentQIndex < config.questions.length) {
+            speak(config.questions[currentQIndex].q[language.code] || config.questions[currentQIndex].q["hi-IN"]);
         } else if (mode === 'done') {
             speak(language.code === "en-IN" ? "Your form is complete." : "आपका फॉर्म तैयार है।");
         }
-    }, [mode, currentQIndex, language]);
+    }, [mode, currentQIndex, language, formId]);
 
     const handleMicTap = () => {
         setIsRecording(true);
         setTimeout(() => {
             setIsRecording(false);
-            const fieldId = mockQuestions[currentQIndex].fieldId;
+            const fieldId = config.questions[currentQIndex].fieldId;
             setAnswers(prev => ({ ...prev, [fieldId]: "Sample Answer " + fieldId }));
 
-            if (currentQIndex < mockQuestions.length - 1) {
+            if (currentQIndex < config.questions.length - 1) {
                 setCurrentQIndex(prev => prev + 1);
             } else {
                 setMode('done');
@@ -69,24 +129,27 @@ const SmartFormAssistant = ({ language, onComplete }) => {
         try {
             const res = await axios.post(endpoints.scanDocument, {
                 imageBase64: imageSrc,
-                expectedDocumentType: 'aadhaar',
+                expectedDocumentType: config.expectedDocumentType,
                 language: language.code.split('-')[0] // 'hi' or 'en'
             });
 
             if (res.data.isCorrectDocument) {
                 const ext = res.data.extractedFields || {};
+                const mappedAnswers = config.mapping(ext);
                 const newAnswers = { ...answers };
                 let lastFilledIndex = -1;
 
-                if (ext.name) { newAnswers.name = ext.name; lastFilledIndex = Math.max(lastFilledIndex, 0); }
-                if (ext.dob) { newAnswers.dob = ext.dob; lastFilledIndex = Math.max(lastFilledIndex, 1); }
-                if (ext.address) { newAnswers.address = ext.address; lastFilledIndex = Math.max(lastFilledIndex, 2); }
-                if (ext.uid_last4) { newAnswers.idNumber = "XXXX-XXXX-" + ext.uid_last4; lastFilledIndex = Math.max(lastFilledIndex, 3); }
+                config.fields.forEach((f, idx) => {
+                    if (mappedAnswers[f.id]) {
+                        newAnswers[f.id] = mappedAnswers[f.id];
+                        lastFilledIndex = idx;
+                    }
+                });
 
                 setAnswers(newAnswers);
-                setCurrentQIndex(lastFilledIndex + 1);
+                setCurrentQIndex(lastFilledIndex + 1 >= config.questions.length ? config.questions.length - 1 : lastFilledIndex + 1);
 
-                if (lastFilledIndex === 3) {
+                if (lastFilledIndex === config.fields.length - 1) {
                     setMode('done');
                 } else {
                     setMode('qa');
@@ -100,14 +163,14 @@ const SmartFormAssistant = ({ language, onComplete }) => {
             alert("Error analyzing document. Proceeding to voice Q&A.");
             setMode('qa');
         }
-    }, [webcamRef, answers, language]);
+    }, [webcamRef, answers, language, config]);
 
     // UI Translation
     const t = {
-        scanMsg: language.code === "en-IN" ? "Scan document to auto-fill 80% of form" : "आधार स्कैन करें 80% फॉर्म अपने आप भरेगा",
+        scanMsg: config.scanMsg[language.code] || config.scanMsg["hi-IN"],
         scanBtn: language.code === "en-IN" ? "Scan Now" : "अभी स्कैन करें",
         skipBtn: language.code === "en-IN" ? "Skip Scanning" : "सीधा शुरू करें",
-        qOf: language.code === "en-IN" ? "Q" : "सवााल",
+        qOf: language.code === "en-IN" ? "Q" : "सवाल",
         doneBtn: language.code === "en-IN" ? "Proceed to Sign" : "आगे बढ़ें"
     };
 
@@ -117,11 +180,11 @@ const SmartFormAssistant = ({ language, onComplete }) => {
             {/* LEFT: PDF Form Preview */}
             <div className="w-full md:w-1/2 bg-gray-100 p-4 border-r border-gray-200 relative overflow-y-auto min-h-[50vh]">
                 <div className="w-full max-w-sm mx-auto bg-white h-[600px] shadow-sm flex flex-col items-center justify-start p-8 relative">
-                    <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2 mb-8 text-black">Government Form</h2>
+                    <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2 mb-8 text-black">{config.name}</h2>
 
                     <div className="w-full relative h-full">
-                        {formFields.map(f => {
-                            const qIdx = mockQuestions.findIndex(mq => mq.fieldId === f.id);
+                        {config.fields.map(f => {
+                            const qIdx = config.questions.findIndex(mq => mq.fieldId === f.id);
                             const isActive = mode === 'qa' && qIdx === currentQIndex;
                             const isFilled = answers[f.id] !== undefined;
 
@@ -194,12 +257,12 @@ const SmartFormAssistant = ({ language, onComplete }) => {
                     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in relative">
                         <div className="absolute top-8 left-8">
                             <span className="bg-orange-100 text-orange-800 text-sm font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                                {t.qOf} {currentQIndex + 1} / {mockQuestions.length}
+                                {t.qOf} {currentQIndex + 1} / {config.questions.length}
                             </span>
                         </div>
 
                         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12 mt-12 leading-tight">
-                            {mockQuestions[currentQIndex].q[language.code] || mockQuestions[currentQIndex].q["hi-IN"]}
+                            {config.questions[currentQIndex].q[language.code] || config.questions[currentQIndex].q["hi-IN"]}
                         </h2>
 
                         <button

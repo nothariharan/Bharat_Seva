@@ -71,7 +71,7 @@ const SevaRoadmap = ({ steps, language, onFormStepClick, onLocationStepClick }) 
 
                                         {step.type === 'form' && (
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); onFormStepClick(step.id); }}
+                                                onClick={(e) => { e.stopPropagation(); onFormStepClick(step.formId, step.id); }}
                                                 className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
                                             >
                                                 <FileEdit size={18} />

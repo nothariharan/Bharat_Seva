@@ -5,6 +5,14 @@ const DOCUMENT_PROMPTS = {
     Return JSON only: { "name": "", "dob": "", "address": "", "uid_last4": "", "document_type": "aadhaar" }
     If this is NOT an Aadhaar card, return: { "document_type": "wrong", "detected_as": "what you see" }`,
 
+    pan: `Extract these fields from this PAN card image.
+    Return JSON only: { "name": "", "dob": "", "pan_number": "", "father_name": "", "document_type": "pan" }
+    If this is NOT a PAN card, return: { "document_type": "wrong", "detected_as": "what you see" }`,
+
+    voter_id: `Extract these fields from this Voter ID card image.
+    Return JSON only: { "name": "", "epic_number": "", "dob": "", "gender": "", "address": "", "document_type": "voter_id" }
+    If this is NOT a Voter ID card, return: { "document_type": "wrong", "detected_as": "what you see" }`,
+
     passbook: `Extract these fields from this bank passbook image.
     Return JSON only: { "name": "", "account_number": "", "ifsc": "", "bank_name": "", "document_type": "passbook" }
     If this is NOT a bank passbook, return: { "document_type": "wrong", "detected_as": "what you see" }`,

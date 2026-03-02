@@ -10,12 +10,16 @@ User's query (transcribed): "${transcript}"
 
 Task instructions:
 1. Carefully analyze the user's intent. Do they want information (DISCOVERY), need to take an action like applying for a scheme (ACTION), or are they just asking a general question (QA)?
-2. Generate a structured, step-by-step action plan to solve their specific problem. 
-3. Think about what specific Indian government schemes, forms, or local offices (like the Panchayat, CSC, or Tehsil) apply to this situation and location. ${lat && lng ? 'You MUST find the exact physically nearest office/center based on their GPS coordinates and explicitly state its location/name.' : ''}
-4. Keep all descriptions extremely simple, as this is for a rural user with potentially low literacy. Explain things clearly without bureaucratic jargon.
-5. Provide a maximum of 6 actionable steps.
-6. If any step requires visiting a website or using an online portal, you MUST include the actual exact government URL (e.g., https://voters.eci.gov.in) clearly inside the 'breakdown' array for that step.
-7. The entire response must be in the ${language} language.
+2. If the user wants to update or apply for a document, identify the specific document:
+    - Aadhaar Update -> formId: "aadhar_update_v1"
+    - PAN Card Update/Application -> formId: "pan_49a_v1"
+    - Voter ID Correction/Update -> formId: "voter_form_8_v1"
+3. Generate a structured, step-by-step action plan to solve their specific problem. 
+4. Think about what specific Indian government schemes, forms, or local offices (like the Panchayat, CSC, or Tehsil) apply to this situation and location. ${lat && lng ? 'You MUST find the exact physically nearest office/center based on their GPS coordinates and explicitly state its location/name.' : ''}
+5. Keep all descriptions extremely simple, as this is for a rural user with potentially low literacy. Explain things clearly without bureaucratic jargon.
+6. Provide a maximum of 6 actionable steps.
+7. If any step requires visiting a website or using an online portal, you MUST include the actual exact government URL (e.g., https://voters.eci.gov.in) clearly inside the 'breakdown' array for that step.
+8. The entire response must be in the ${language} language.
 
 You MUST respond with **valid JSON only**. Do not include any explanation text before or after the JSON.
 

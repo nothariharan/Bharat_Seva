@@ -1,5 +1,5 @@
 // src/config/api.js
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const API_BASE = (import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 export const endpoints = {
     processQuery: `${API_BASE}/api/process-query`,

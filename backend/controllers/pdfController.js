@@ -224,6 +224,28 @@ const generatePdf = async (req, res) => {
                 continue;
             }
 
+            if (coordinate.type === 'digitBoxes') {
+                const digitsOnly = normalizeNumericText(rawValue);
+                if (!digitsOnly) continue;
+
+                const maxDigits = coordinate.maxDigits || 12;
+                const step = coordinate.boxStep || 26;
+                const startX = coordinate.x;
+                const baselineY = coordinate.y;
+                const fontSize = coordinate.size || textStyle.size;
+
+                for (let i = 0; i < Math.min(digitsOnly.length, maxDigits); i += 1) {
+                    const char = digitsOnly[i];
+                    page.drawText(char, {
+                        x: startX + (i * step),
+                        y: baselineY,
+                        size: fontSize,
+                        color: rgb(0, 0, 0)
+                    });
+                }
+                continue;
+            }
+
             let value = sanitizeForPdf(rawValue);
             if (numericFields.has(fieldKey)) value = normalizeNumericText(value);
             if (!value) continue;

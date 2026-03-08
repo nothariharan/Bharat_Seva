@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import axios from 'axios';
-import { Mic, Camera, LayoutGrid } from 'lucide-react';
+import { Mic, Camera, LayoutGrid, Paperclip } from 'lucide-react';
 import ActionDashboard from './ActionDashboard';
 import NoticeReader from './NoticeReader';
 import KnowledgeBoard from './KnowledgeBoard';
@@ -9,6 +9,7 @@ import OrgLoginModal from './OrgLoginModal';
 import NavSidebar from './NavSidebar';
 import CreatePostModal from './CreatePostModal';
 import JanataPulse from './JanataPulse';
+import { endpoints } from '../config/api';
 
 const PulseMic = ({ isListening, onClick }) => {
   return (
@@ -66,6 +67,8 @@ const LandingPage = ({
   const [allOrganizations, setAllOrganizations] = useState([]);
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [showFullPulse, setShowFullPulse] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Fetch all organizations on mount
   React.useEffect(() => {
@@ -92,6 +95,58 @@ const LandingPage = ({
     }
   };
 
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleDocumentUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert(selectedLang.code === 'hi-IN' ? 'कृपया इमेज फ़ाइल अपलोड करें।' : 'Please upload an image file.');
+      e.target.value = '';
+      return;
+    }
+
+    try {
+      setUploadingDoc(true);
+      const imageBase64 = await fileToBase64(file);
+      const res = await axios.post(endpoints.scanDocument, {
+        imageBase64,
+        expectedDocumentType: 'generic',
+        language: selectedLang.code.startsWith('hi') ? 'hi' : 'en'
+      });
+
+      if (!res.data?.isCorrectDocument) {
+        alert(res.data?.rejectionMessage || (selectedLang.code === 'hi-IN' ? 'दस्तावेज़ पढ़ा नहीं जा सका।' : 'Could not parse the document.'));
+      } else {
+        const docType = res.data?.documentTypeDetected || 'document';
+        const extracted = res.data?.extractedFields?.fields || {};
+        const preview = Object.entries(extracted).slice(0, 4).map(([k, v]) => `${k}: ${v}`).join('\n');
+        alert(
+          selectedLang.code === 'hi-IN'
+            ? `दस्तावेज़ पहचाना गया: ${docType}\n\n${preview || 'मुख्य जानकारी निकाली गई।'}`
+            : `Document detected: ${docType}\n\n${preview || 'Key details extracted.'}`
+        );
+        onChipSelect(
+          selectedLang.code === 'hi-IN'
+            ? `${docType} से जुड़ी मदद चाहिए`
+            : `I need help related to ${docType}`
+        );
+      }
+    } catch (err) {
+      console.error('Document upload parse failed:', err);
+      alert(selectedLang.code === 'hi-IN' ? 'दस्तावेज़ प्रोसेस नहीं हुआ। फिर कोशिश करें।' : 'Failed to process document. Please try again.');
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
+
   const labels = {
     "en-IN": { title: "Bharat Seva", hero: "Press the mic and tell me your problem", subtitle: "I will guide you step by step in your language.", processing: "Thinking...", readNotice: "Read a Letter for Me", suggestions: ["My widow pension has stopped", "How to apply for Awas Yojana?", "Find nearest BDO office"], orgLogin: "Organization Login" },
     "hi-IN": { title: "भारत सेवा", hero: "माइक दबाएं और अपनी समस्या बताएं", subtitle: "मैं आपकी भाषा में कदम-दर-कदम मार्गदर्शन करूंगा।", processing: "सोच रहा हूँ...", readNotice: "मेरे लिए एक पत्र पढ़ें", suggestions: ["मेरी विधवा पेंशन रुक गई है", "आवास योजना के लिए आवेदन कैसे करें?", "नज़दीकी BDO कार्यालय खोजें"], orgLogin: "संगठन लॉगिन" },
@@ -108,6 +163,7 @@ const LandingPage = ({
   };
 
   const t = labels[selectedLang.code] || labels["hi-IN"];
+  const attachLabel = selectedLang.code === 'hi-IN' ? 'दस्तावेज़ अटैच करें' : 'Attach Document';
 
   if (response && !showReader) {
     return (
@@ -270,12 +326,29 @@ const LandingPage = ({
                 <SuggestionChips onSelect={onChipSelect} suggestions={t.suggestions} />
 
                 <div className="mt-10 w-full px-4">
-                  <button
-                    onClick={() => setShowReader(true)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-2xl font-extrabold flex items-center justify-center gap-4 shadow-xl shadow-blue-100 active:scale-95 transition-all text-xl"
-                  >
-                    <Camera size={28} /> {t.readNotice}
-                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleDocumentUpload}
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setShowReader(true)}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-2xl font-extrabold flex items-center justify-center gap-3 shadow-xl shadow-blue-100 active:scale-95 transition-all text-lg"
+                    >
+                      <Camera size={24} /> {t.readNotice}
+                    </button>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingDoc}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white p-5 rounded-2xl font-extrabold flex items-center justify-center gap-3 shadow-xl shadow-indigo-100 active:scale-95 transition-all text-lg"
+                    >
+                      <Paperclip size={22} />
+                      {uploadingDoc ? (selectedLang.code === 'hi-IN' ? 'प्रोसेस हो रहा है...' : 'Processing...') : attachLabel}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

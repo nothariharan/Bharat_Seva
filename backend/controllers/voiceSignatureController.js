@@ -1,6 +1,5 @@
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 
 const s3 = new S3Client({
@@ -24,7 +23,7 @@ const uploadVoiceSignature = async (req, res) => {
         // Generate SHA-256 hash for tamper-evidence
         const hash = crypto.createHash('sha256').update(audioBuffer).digest('hex');
 
-        const fileKey = `signatures/${uuidv4()}.wav`;
+        const fileKey = `signatures/${crypto.randomUUID()}.wav`;
 
         await s3.send(new PutObjectCommand({
             Bucket: BUCKET,

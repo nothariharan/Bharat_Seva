@@ -69,13 +69,12 @@ const LandingPage = ({
   const [showFullPulse, setShowFullPulse] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const fileInputRef = useRef(null);
-
   // Fetch all organizations on mount
   React.useEffect(() => {
     const fetchOrgs = async () => {
       setLoadingOrgs(true);
       try {
-        const res = await axios.get('http://localhost:3000/api/communities');
+        const res = await axios.get(endpoints.communities);
         setAllOrganizations(res.data);
       } catch (err) {
         console.error("Failed to fetch organizations:", err);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ShieldAlert, TrendingUp, MapPin, AlertTriangle, Users, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { endpoints } from '../config/api';
 
 const JanataPulse = ({ selectedLang, onMaximize }) => {
     const [pulseData, setPulseData] = useState(null);
@@ -11,7 +12,7 @@ const JanataPulse = ({ selectedLang, onMaximize }) => {
     useEffect(() => {
         const fetchPulse = async () => {
             try {
-                const res = await axios.get('http://localhost:3000/api/pulse');
+                const res = await axios.get(endpoints.pulse);
                 setPulseData(res.data);
                 // Select the first critical alert if any
                 const critical = res.data.alerts.find(a => a.status === 'CRITICAL');

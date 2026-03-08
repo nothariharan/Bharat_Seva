@@ -3,6 +3,7 @@ import axios from 'axios';
 import { LayoutDashboard, Inbox, BookOpen, Settings, LogOut, TrendingUp, CheckCircle, MessageSquare, User, Globe, Shield, Loader2 } from 'lucide-react';
 import KnowledgeBoard from './KnowledgeBoard';
 import CreatePostModal from './CreatePostModal';
+import { endpoints } from '../config/api';
 
 const OperatorDashboard = ({ operator: initialOperator, onLogout }) => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -26,7 +27,7 @@ const OperatorDashboard = ({ operator: initialOperator, onLogout }) => {
     React.useEffect(() => {
         const fetchFullData = async () => {
             try {
-                const res = await axios.get('http://localhost:3000/api/communities');
+                const res = await axios.get(endpoints.communities);
                 const fullOrg = res.data.find(c => c.id === operator.id || c.name === operator.name);
                 if (fullOrg) {
                     setOperator(fullOrg);
@@ -68,7 +69,7 @@ const OperatorDashboard = ({ operator: initialOperator, onLogout }) => {
                 contactPhone: formData.contactPhone,
                 resources: parsedResources
             };
-            const res = await axios.put(`http://localhost:3000/api/communities/${operator.id}`, updated);
+            const res = await axios.put(`${endpoints.communities}/${operator.id}`, updated);
             setOperator(res.data.community);
             alert("Profile updated successfully!");
         } catch (err) {
@@ -82,7 +83,7 @@ const OperatorDashboard = ({ operator: initialOperator, onLogout }) => {
     const handleContact = async (name, phone) => {
         setNotifying(phone);
         try {
-            await axios.post('http://localhost:3000/api/notify-citizen', {
+            await axios.post(endpoints.notifyCitizen, {
                 phoneNumber: phone,
                 orgName: operator.name
             });

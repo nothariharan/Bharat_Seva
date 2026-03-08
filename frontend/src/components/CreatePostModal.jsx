@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Send, AlertCircle, Info, Mic, Square, Loader2, Sparkles, User, MapPin, Tag } from 'lucide-react';
 import axios from 'axios';
+import { endpoints } from '../config/api';
 
 const CreatePostModal = ({ isOpen, onClose, currentUser, onPostCreated, selectedLang }) => {
     const [content, setContent] = useState('');
@@ -93,7 +94,7 @@ const CreatePostModal = ({ isOpen, onClose, currentUser, onPostCreated, selected
             formData.append('audio', audioBlob);
             formData.append('language', selectedLang?.code || 'en-IN');
 
-            const res = await axios.post('http://localhost:3000/api/social/posts/transcribe', formData);
+            const res = await axios.post(`${endpoints.posts}/transcribe`, formData);
             if (res.data.text) {
                 setContent(prev => prev ? prev + ' ' + res.data.text : res.data.text);
             }
@@ -118,7 +119,7 @@ const CreatePostModal = ({ isOpen, onClose, currentUser, onPostCreated, selected
                 topic
             };
 
-            await axios.post('http://localhost:3000/api/social/posts', postData);
+            await axios.post(endpoints.posts, postData);
             setContent('');
             onPostCreated();
             onClose();

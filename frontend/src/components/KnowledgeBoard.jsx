@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ThumbsUp, MessageSquare, Plus } from 'lucide-react';
 import CreatePostModal from './CreatePostModal';
+import { endpoints } from '../config/api';
 
 const KnowledgeBoard = ({ selectedLang, currentUser, onCreatePost, refreshTrigger }) => {
     const [posts, setPosts] = useState([]);
@@ -18,7 +19,7 @@ const KnowledgeBoard = ({ selectedLang, currentUser, onCreatePost, refreshTrigge
 
     const fetchPosts = async () => {
         try {
-            const res = await axios.get('http://localhost:3000/api/social/posts');
+            const res = await axios.get(endpoints.posts);
             setPosts(res.data);
         } catch (error) {
             console.error("Failed to fetch posts:", error);
@@ -26,18 +27,18 @@ const KnowledgeBoard = ({ selectedLang, currentUser, onCreatePost, refreshTrigge
         setLoading(false);
     };
 
-    useEffect(() => {
-        fetchPosts();
-    }, [refreshTrigger]);
-
     const handleUpvote = async (postId) => {
         try {
-            await axios.post(`http://localhost:3000/api/social/posts/${postId}/upvote`);
+            await axios.post(`${endpoints.posts}/${postId}/upvote`);
             setPosts(posts.map(p => p.id === postId ? { ...p, upvotes: p.upvotes + 1 } : p));
         } catch (error) {
             console.error("Upvote failed:", error);
         }
     };
+
+    useEffect(() => {
+        fetchPosts();
+    }, [refreshTrigger]);
 
     const states = ['All', ...new Set(posts.map(p => p.state))];
     const topics = ['All', ...new Set(posts.map(p => p.topic))];

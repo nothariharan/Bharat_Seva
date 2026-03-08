@@ -7,37 +7,37 @@ const templateMap = {
 
 const fieldMappings = {
     form_6b: {
-        electorNameTop: { type: 'text', x: 70, y: 688, maxWidth: 180, size: 9 },
-        constituencyName: { type: 'text', x: 270, y: 688, maxWidth: 290, size: 9 },
-        epicNumber: { type: 'text', x: 360, y: 666, maxWidth: 210, size: 9 },
+        electorNameTop: { type: 'text', x: 51, y: 688, maxWidth: 155, size: 9 },
+        constituencyName: { type: 'text', x: 245, y: 688, maxWidth: 300, size: 9 },
+        epicNumber: { type: 'text', x: 312, y: 666, maxWidth: 215, size: 9 },
         aadhaarChoice: {
             type: 'checkboxGroup',
             options: {
-                has_aadhaar: { x: 58, y: 599 },
-                no_aadhaar: { x: 58, y: 557 }
+                has_aadhaar: { x: 64, y: 591 },
+                no_aadhaar: { x: 64, y: 549 }
             }
         },
-        aadhaarNumber: { type: 'text', x: 156, y: 599, maxWidth: 205, size: 9 },
+        aadhaarNumber: { type: 'text', x: 166, y: 599, maxWidth: 196, size: 9 },
         supportingDocument: {
             type: 'checkboxGroup',
             options: {
-                mgnrega_job_card: { x: 58, y: 477 },
-                bank_post_passbook: { x: 58, y: 450 },
-                health_insurance_smart_card: { x: 58, y: 423 },
-                driving_license: { x: 58, y: 395 },
-                pan_card: { x: 58, y: 368 },
-                rgi_npr_smart_card: { x: 58, y: 341 },
-                indian_passport: { x: 58, y: 314 },
-                pension_document: { x: 58, y: 287 },
-                service_identity_card: { x: 58, y: 261 },
-                official_identity_card: { x: 58, y: 222 },
-                udid_card: { x: 58, y: 195 }
+                mgnrega_job_card: { x: 64, y: 468 },
+                bank_post_passbook: { x: 64, y: 441 },
+                health_insurance_smart_card: { x: 64, y: 414 },
+                driving_license: { x: 64, y: 387 },
+                pan_card: { x: 64, y: 360 },
+                rgi_npr_smart_card: { x: 64, y: 333 },
+                indian_passport: { x: 64, y: 306 },
+                pension_document: { x: 64, y: 279 },
+                service_identity_card: { x: 64, y: 252 },
+                official_identity_card: { x: 64, y: 214 },
+                udid_card: { x: 64, y: 187 }
             }
         },
         electorNameBottom: { type: 'text', x: 449, y: 116, maxWidth: 128, size: 9 },
-        mobileOrEmail: { type: 'text', x: 465, y: 89, maxWidth: 112, size: 8 },
-        place: { type: 'text', x: 92, y: 62, maxWidth: 210, size: 9 },
-        date: { type: 'text', x: 88, y: 35, maxWidth: 170, size: 9 }
+        mobileOrEmail: { type: 'text', x: 455, y: 89, maxWidth: 122, size: 8 },
+        place: { type: 'text', x: 87, y: 62, maxWidth: 215, size: 9 },
+        date: { type: 'text', x: 84, y: 35, maxWidth: 176, size: 9 }
     },
     kyc_updation: {
         customerName: { x: 160, y: 717, maxWidth: 250, size: 9 },

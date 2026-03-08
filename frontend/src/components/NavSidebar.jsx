@@ -1,9 +1,9 @@
-import React from 'react';
-import { MessageSquare, Building2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { MessageSquare, Building2, ChevronRight, ChevronLeft, ShieldAlert } from 'lucide-react';
 
 const NavSidebar = ({ activePanel, onToggleSecondary, isOpen }) => {
     const navItems = [
         { id: 'knowledge', icon: MessageSquare, label: 'Knowledge' },
+        { id: 'pulse', icon: ShieldAlert, label: 'Janata Pulse' },
         { id: 'organizations', icon: Building2, label: 'Organizations' },
     ];
 
@@ -15,8 +15,8 @@ const NavSidebar = ({ activePanel, onToggleSecondary, isOpen }) => {
                         key={item.id}
                         onClick={() => onToggleSecondary(item.id)}
                         className={`p-4 rounded-2xl transition-all group relative ${activePanel === item.id
-                                ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
-                                : 'text-gray-400 hover:bg-orange-50 hover:text-orange-500'
+                            ? 'bg-orange-500 text-white shadow-lg shadow-orange-200'
+                            : 'text-gray-400 hover:bg-orange-50 hover:text-orange-500'
                             }`}
                         title={item.label}
                     >

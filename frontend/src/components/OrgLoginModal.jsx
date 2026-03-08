@@ -16,7 +16,8 @@ const OrgLoginModal = ({ isOpen, onClose, onLogin }) => {
         setTimeout(() => {
             if (email === 'admin@kisan.org' && password === 'password123') {
                 onLogin({
-                    name: "Nashik Kisan Kendra",
+                    id: "nas-001",
+                    name: "Nashik Kisan Seva Kendra",
                     district: "Nashik",
                     state: "Maharashtra",
                     email: email

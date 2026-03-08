@@ -4,11 +4,80 @@ import { LayoutDashboard, Inbox, BookOpen, Settings, LogOut, TrendingUp, CheckCi
 import KnowledgeBoard from './KnowledgeBoard';
 import CreatePostModal from './CreatePostModal';
 
-const OperatorDashboard = ({ operator, onLogout }) => {
+const OperatorDashboard = ({ operator: initialOperator, onLogout }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [notifying, setNotifying] = useState(null);
     const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [operator, setOperator] = useState(initialOperator);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Form State
+    const [formData, setFormData] = useState({
+        description: '',
+        topics: '',
+        coverageDistricts: '',
+        coverageStates: '',
+        contactPhone: '',
+        resources: ''
+    });
+
+    // Fetch full data on mount
+    React.useEffect(() => {
+        const fetchFullData = async () => {
+            try {
+                const res = await axios.get('http://localhost:3000/api/communities');
+                const fullOrg = res.data.find(c => c.id === operator.id || c.name === operator.name);
+                if (fullOrg) {
+                    setOperator(fullOrg);
+                    setFormData({
+                        description: fullOrg.description || '',
+                        topics: fullOrg.topics ? fullOrg.topics.join(', ') : '',
+                        coverageDistricts: fullOrg.coverageDistricts ? fullOrg.coverageDistricts.join(', ') : '',
+                        coverageStates: fullOrg.coverageStates ? fullOrg.coverageStates.join(', ') : '',
+                        contactPhone: fullOrg.contactPhone || '',
+                        resources: fullOrg.resources ? JSON.stringify(fullOrg.resources, null, 2) : '[]'
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch full org data", err);
+            }
+        };
+        fetchFullData();
+    }, [operator.id, operator.name]);
+
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        try {
+            let parsedResources = [];
+            try {
+                parsedResources = JSON.parse(formData.resources);
+            } catch (pErr) {
+                alert("Invalid JSON in Resources field. Please check format.");
+                setIsSaving(false);
+                return;
+            }
+
+            const updated = {
+                ...operator,
+                description: formData.description,
+                topics: formData.topics.split(',').map(t => t.trim()).filter(t => t),
+                coverageDistricts: formData.coverageDistricts.split(',').map(d => d.trim()).filter(d => d),
+                coverageStates: formData.coverageStates.split(',').map(s => s.trim()).filter(s => s),
+                contactPhone: formData.contactPhone,
+                resources: parsedResources
+            };
+            const res = await axios.put(`http://localhost:3000/api/communities/${operator.id}`, updated);
+            setOperator(res.data.community);
+            alert("Profile updated successfully!");
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update profile.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleContact = async (name, phone) => {
         setNotifying(phone);
@@ -50,28 +119,86 @@ const OperatorDashboard = ({ operator, onLogout }) => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-2xl flex items-center gap-4">
-                        <Globe className="text-blue-500" />
-                        <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase">Service Area</p>
-                            <p className="font-bold text-gray-800">{operator.district}, {operator.state}</p>
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Organization Description</label>
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all min-h-[120px]"
+                                placeholder="Describe what your organization does..."
+                            />
+                        </div>
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Expertise Topics (Comma separated)</label>
+                                <input
+                                    type="text"
+                                    value={formData.topics}
+                                    onChange={(e) => setFormData({ ...formData, topics: e.target.value })}
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                    placeholder="e.g. Farmer Welfare, Legal Aid"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Contact Phone</label>
+                                <input
+                                    type="text"
+                                    value={formData.contactPhone}
+                                    onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                                    className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                    placeholder="Organization contact number"
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div className="p-4 bg-gray-50 rounded-2xl flex items-center gap-4">
-                        <Shield className="text-green-500" />
-                        <div>
-                            <p className="text-[10px] font-black text-gray-400 uppercase">Account Status</p>
-                            <p className="font-bold text-gray-800 italic">Verified Civic Partner</p>
-                        </div>
-                    </div>
-                </div>
 
-                <div className="mt-8 pt-8 border-t border-gray-100 flex justify-end">
-                    <button className="px-8 py-3 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200">
-                        Update Details
-                    </button>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Coverage States (Comma separated)</label>
+                            <input
+                                type="text"
+                                value={formData.coverageStates}
+                                onChange={(e) => setFormData({ ...formData, coverageStates: e.target.value })}
+                                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                placeholder="e.g. Maharashtra, Delhi"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Coverage Districts (Comma separated)</label>
+                            <input
+                                type="text"
+                                value={formData.coverageDistricts}
+                                onChange={(e) => setFormData({ ...formData, coverageDistricts: e.target.value })}
+                                className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                                placeholder="e.g. Nashik, Pune"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Digital Resources (JSON Array)</label>
+                        <textarea
+                            value={formData.resources}
+                            onChange={(e) => setFormData({ ...formData, resources: e.target.value })}
+                            className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all min-h-[150px]"
+                            placeholder='[{"label": "Link", "url": "https://..."}]'
+                        />
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Format: {'[{"label": "Name", "url": "URL"}]'}</p>
+                    </div>
+
+                    <div className="pt-8 border-t border-gray-100 flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={isSaving}
+                            className="px-8 py-3 bg-gray-900 text-white font-black rounded-2xl hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200 disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Settings size={20} />}
+                            Update Profile Details
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
@@ -159,8 +286,29 @@ const OperatorDashboard = ({ operator, onLogout }) => {
                             <StatsCard title="Citizen Reach" value="340" icon={TrendingUp} color="orange" />
                         </div>
 
+                        <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 rounded-3xl text-white shadow-xl shadow-orange-100">
+                            <h3 className="text-2xl font-black mb-2">Welcome back to Bharat Seva</h3>
+                            <p className="text-orange-50 font-medium opacity-90 max-w-xl">
+                                Your organization is currently helping citizens in <b>{operator.coverageDistricts?.join(', ') || operator.district}</b>.
+                                Check the Query Inbox to respond to new requests.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'inbox' && (
+                    <div className="space-y-6 animate-fade-in">
                         <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
-                            <h3 className="text-xl font-bold mb-6">Recent Citizen Requests</h3>
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h3 className="text-2xl font-black text-gray-900">Query Inbox</h3>
+                                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Approve or Reject citizen help requests</p>
+                                </div>
+                                <div className="bg-orange-100 text-orange-600 px-4 py-2 rounded-xl font-black text-sm">
+                                    2 New Requests
+                                </div>
+                            </div>
+
                             <div className="space-y-4">
                                 <RequestItem
                                     name="Ramesh Kumar"
@@ -192,9 +340,9 @@ const OperatorDashboard = ({ operator, onLogout }) => {
 
                 {activeTab === 'settings' && <SettingsView />}
 
-                {['inbox', 'resources'].includes(activeTab) && (
+                {activeTab === 'resources' && (
                     <div className="flex items-center justify-center min-h-[400px] bg-white rounded-2xl border border-dashed border-gray-300">
-                        <p className="text-gray-400 font-bold">{activeTab.toUpperCase()} View is coming soon in the next sprint.</p>
+                        <p className="text-gray-400 font-bold">RESOURCE HUB View is coming soon in the next sprint.</p>
                     </div>
                 )}
             </main>

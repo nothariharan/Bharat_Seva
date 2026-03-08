@@ -26,6 +26,11 @@ if (!fs.existsSync(DB_PATH)) {
             coverageStates: ['Maharashtra'],
             coverageDistricts: ['Nashik'],
             topics: ['Farmer Welfare', 'Financial Inclusion'],
+            queriesAnswered: 342,
+            stats: {
+                citizenReach: 1200,
+                rating: 4.8
+            },
             resources: [
                 { label: 'PM-KISAN Status Check', url: 'https://pmkisan.gov.in/' },
                 { label: 'Nashik Agriculture Guide (PDF)', url: 'https://example.com/nashik-guide.pdf' }
@@ -41,6 +46,11 @@ if (!fs.existsSync(DB_PATH)) {
             coverageStates: ['Delhi'],
             coverageDistricts: ['Central Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi'],
             topics: ['Legal Aid', 'Labour Rights', 'Housing'],
+            queriesAnswered: 156,
+            stats: {
+                citizenReach: 450,
+                rating: 4.5
+            },
             resources: [
                 { label: 'Know Your Rights Handbook', url: 'https://example.com/rights.pdf' }
             ],
@@ -109,4 +119,32 @@ const respondToQuery = async (req, res) => {
     }
 };
 
-module.exports = { registerCommunity, getMatchingCommunities, respondToQuery };
+const getAllCommunities = async (req, res) => {
+    try {
+        const communities = getCommunities().filter(c => c.active);
+        res.json(communities);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch communities' });
+    }
+};
+
+const updateCommunity = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedData = req.body;
+        const communities = getCommunities();
+        const index = communities.findIndex(c => c.id === id);
+
+        if (index === -1) {
+            return res.status(404).json({ error: 'Community not found' });
+        }
+
+        communities[index] = { ...communities[index], ...updatedData };
+        saveCommunities(communities);
+        res.json({ success: true, community: communities[index] });
+    } catch (error) {
+        res.status(500).json({ error: 'Update failed' });
+    }
+};
+
+module.exports = { registerCommunity, getMatchingCommunities, respondToQuery, getAllCommunities, updateCommunity };

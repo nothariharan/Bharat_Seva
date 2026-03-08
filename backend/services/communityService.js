@@ -1,22 +1,24 @@
 const { classifyTopic } = require('../services/aiService');
-const fs = require('fs');
-const path = require('path');
-
-const DB_PATH = path.join(__dirname, '../config/communities.json');
+const Community = require('../models/Community');
 
 const getMatchingCommunitiesInternal = async (state, district, transcript) => {
     try {
-        if (!fs.existsSync(DB_PATH)) return [];
-        const communities = JSON.parse(fs.readFileSync(DB_PATH, 'utf8')).filter(c => c.active);
+        // 1. Geographic Filter (In Database)
+        let query = {
+            active: true,
+            coverageStates: { $in: [state, 'All India'] }
+        };
 
-        // 1. Geographic Filter
-        let matches = communities.filter(c => {
-            const stateMatch = c.coverageStates.includes(state) || c.coverageStates.includes('All India');
-            const districtMatch = !district || c.coverageDistricts.includes(district) || c.coverageDistricts.length === 0;
-            return stateMatch && districtMatch;
-        });
+        if (district) {
+            query.$or = [
+                { coverageDistricts: district },
+                { coverageDistricts: { $size: 0 } }
+            ];
+        }
 
-        // 2. Topic Filter
+        let matches = await Community.find(query);
+
+        // 2. Topic Filter (Post-processing for flexibility with AI classification)
         const { topics, confidence } = await classifyTopic(transcript);
         if (confidence > 0.5) {
             matches = matches.filter(c =>

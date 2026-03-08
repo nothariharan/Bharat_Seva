@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const twilio = require('twilio');
+const connectDB = require('./config/db');
+
+// Connect to Database
+connectDB();
 
 const app = express();
 app.use(cors({
@@ -16,15 +20,18 @@ const twilioClient = twilio(process.env.TWILIO_SID || 'AC_PLACEHOLDER', process.
 // AWS Bedrock API Routes
 const { rateLimiter } = require('./middleware/rateLimiter');
 const apiRoutes = require('./routes/api');
+const pulseRoutes = require('./routes/pulseRoutes');
 
 // Apply rate limits to protect AWS costs
 app.use('/api/process-query', rateLimiter(50));
 app.use('/api/scan-document', rateLimiter(50));
 app.use('/api/read-notice', rateLimiter(50));
 app.use('/api/context-chat', rateLimiter(50));
+app.use('/api/pulse', rateLimiter(100)); // Higher limit for dashboard data
 
 // Mount the AWS Bedrock & S3 routes
 app.use('/api', apiRoutes);
+app.use('/api/pulse', pulseRoutes);
 
 // 5. Geo Route (Mocked for Demo)
 app.post('/api/geo-route', (req, res) => {

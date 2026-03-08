@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import { Mic, Camera, LayoutGrid } from 'lucide-react';
 import ActionDashboard from './ActionDashboard';
 import NoticeReader from './NoticeReader';
@@ -7,6 +8,7 @@ import OrganizationsSidebar from './OrganizationsSidebar';
 import OrgLoginModal from './OrgLoginModal';
 import NavSidebar from './NavSidebar';
 import CreatePostModal from './CreatePostModal';
+import JanataPulse from './JanataPulse';
 
 const PulseMic = ({ isListening, onClick }) => {
   return (
@@ -50,7 +52,10 @@ const LandingPage = ({
   onLangChange,
   languages,
   onChipSelect,
-  onOrgLogin
+  onOrgLogin,
+  audioMode,
+  toggleAudioMode,
+  speakResponse
 }) => {
   const [showReader, setShowReader] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -58,6 +63,25 @@ const LandingPage = ({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activePanel, setActivePanel] = useState('knowledge');
   const [isPanelOpen, setIsPanelOpen] = useState(true);
+  const [allOrganizations, setAllOrganizations] = useState([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [showFullPulse, setShowFullPulse] = useState(false);
+
+  // Fetch all organizations on mount
+  React.useEffect(() => {
+    const fetchOrgs = async () => {
+      setLoadingOrgs(true);
+      try {
+        const res = await axios.get('http://localhost:3000/api/communities');
+        setAllOrganizations(res.data);
+      } catch (err) {
+        console.error("Failed to fetch organizations:", err);
+      } finally {
+        setLoadingOrgs(false);
+      }
+    };
+    fetchOrgs();
+  }, []);
 
   const handleTogglePanel = (panelId) => {
     if (activePanel === panelId) {
@@ -70,8 +94,8 @@ const LandingPage = ({
 
   const labels = {
     "en-IN": { title: "Bharat Seva", hero: "Press the mic and tell me your problem", subtitle: "I will guide you step by step in your language.", processing: "Thinking...", readNotice: "Read a Letter for Me", suggestions: ["My widow pension has stopped", "How to apply for Awas Yojana?", "Find nearest BDO office"], orgLogin: "Organization Login" },
-    "hi-IN": { title: "भारत सेवा", hero: "माइक दबाएं और अपनी समस्या बताएं", subtitle: "मैं आपकी भाषा में कदम-दर-कदम मार्गदर्शन करूंगा।", processing: "সোচ رہا हूँ...", readNotice: "मेरे लिए एक पत्र पढ़ें", suggestions: ["मेरी विधवा पेंशन रुक गई है", "आवास योजना के लिए आवेदन कैसे करें?", "नज़दीकी BDO कार्यालय खोजें"], orgLogin: "संगठन लॉगिन" },
-    "te-IN": { title: "భారత్ సేవా", hero: "మైక్ నొక్కి మీ సమస్యను చెప్పండి", subtitle: "నేను మీ భాషలో మీకు దశలవారీగా మార్గనిర్దేశం చేస్తాను.", processing: "ఆలోచిస్తున్నాను...", readNotice: "నా కోసం ఒక లేఖ చదవండి", suggestions: ["నా వితంతు పెన్షన్ ఆగిపోయింది", "ఆవాస్ యోజన కోసం ఎలా దരఖాస్తు చేయాలి?", "సమీప BDO కార్యాలయాన్ని కనుగొనండి"], orgLogin: "సంస్థ లాగిన్" },
+    "hi-IN": { title: "भारत सेवा", hero: "माइक दबाएं और अपनी समस्या बताएं", subtitle: "मैं आपकी भाषा में कदम-दर-कदम मार्गदर्शन करूंगा।", processing: "सोच रहा हूँ...", readNotice: "मेरे लिए एक पत्र पढ़ें", suggestions: ["मेरी विधवा पेंशन रुक गई है", "आवास योजना के लिए आवेदन कैसे करें?", "नज़दीकी BDO कार्यालय खोजें"], orgLogin: "संगठन लॉगिन" },
+    "te-IN": { title: "భారత్ సేవా", hero: "మైక్ నొక్కి మీ సమస్యను చెప్పండి", subtitle: "నేను మీ భాషలో మీకు దశలవారీగా మార్గనిర్దేశం చేస్తాను.", processing: "ఆలోచిస్తున్నాను...", readNotice: "నా కోసం ఒక లేఖ చదవండి", suggestions: ["నా వితంతు పెన్షన్ ఆగిపోయింది", "ఆవాస్ యోజన కోసం ఎలా దరఖాస్తు చేయాలి?", "సమీప BDO కార్యాలయాన్ని కనుగొనండి"], orgLogin: "సంస్థ లాగిన్" },
     "ta-IN": { title: "பாரத் சேவா", hero: "மைக்கை அழுத்தி உங்கள் சிக்கலை கூறுங்கள்", subtitle: "உங்கள் மொழியில் படிப்படியாக நான் வழிகாட்டுவேன்.", processing: "யோசிக்கிறேன்...", readNotice: "எனக்காக ஒரு கடிதத்தைப் படியுங்கள்", suggestions: ["எனது விதவை ஓய்வூதியம் நிறுத்தப்பட்டுள்ளது", "ஆவாஸ் யோஜனாவுக்கு எப்படி விண்ணப்பிப்பது?", "அருகிலுள்ள BDO அலுவலகத்தைக் கண்டறியவும்"], orgLogin: "அமைப்பு உள்நுழைவு" },
     "kn-IN": { title: "ಭಾರತ್ ಸೇವಾ", hero: "ಮೈಕ್ ಒತ್ತಿ ಮತ್ತು ನಿಮ್ಮ ಸಮಸ್ಯೆಯನ್ನು ಹೇಳಿ", subtitle: "ನಿಮ್ಮ ಭಾಷೆಯಲ್ಲಿ ನಾನು ಹಂತ ಹಂತವಾಗಿ ಮಾರ್ಗದರ್ಶನ ನೀಡುತ್ತೇನೆ.", processing: "ಯೋಚಿಸುತ್ತಿರುವೆ...", readNotice: "ನನಗಾಗಿ ಒಂದು ಪತ್ರವನ್ನು ಓದಿ", suggestions: ["ನನ್ನ ವಿಧವಾ ವೇತನ ನಿಂತಿದೆ", "ಆವಾಸ್ ಯೋಜನೆಗೆ ಅರ್ಜಿ ಸಲ್ಲಿಸುವುದು ಹೇಗೆ?", "ಹತ್ತಿರದ BDO ಕಚೇರಿ ಹುಡುಕಿ"], orgLogin: "ಸಂಸ್ಥೆಯ ಲಾಗಿನ್" },
     "ml-IN": { title: "ഭാരത് സേവ", hero: "മൈക്ക് അമർത്തി നിങ്ങളുടെ പ്രശ്നം പറയുക", subtitle: "നിങ്ങളുടെ ഭാഷയിൽ ഞാൻ ഘട്ടം ഘട്ടമായി നിങ്ങളെ നയിക്കും.", processing: "ചിന്തിക്കുന്നു...", readNotice: "എനിക്കായി ഒരു കത്ത് വായിക്കുക", suggestions: ["എന്റെ വിധവാ പെൻഷൻ നിലച്ചു", "ആവാസ് യോജനയ്ക്ക് എങ്ങനെ അപേക്ഷിക്കാം?", "ഏറ്റവും അടുത്തുള്ള BDO ഓഫീസ് കണ്ടെത്തുക"], orgLogin: "ഓർഗനൈസേഷൻ ലോഗിൻ" },
@@ -79,14 +103,22 @@ const LandingPage = ({
     "mr-IN": { title: "भारत सेवा", hero: "माईक दाबा आणि तुमची समस्या सांगा", subtitle: "मी तुम्हाला तुमच्या भाषेत टप्प्याटप्प्याने मार्गदर्शन करेन.", processing: "विचार करत आहे...", readNotice: "माझ्यासाठी एक पत्र वाचा", suggestions: ["माझे विधवा पेन्शन थांबले आहे", "आवास योजनेसाठी अर्ज कसा करावा?", "जवळचे BDO कार्यालय शोधा"], orgLogin: "संस्था लॉगिन" },
     "gu-IN": { title: "ભારત સેવા", hero: "માઇક દબાવો અને તમારી સમસ્યા જણાવો", subtitle: "હું તમને તમારી ભાષામાં પગલું દ્વારા પગલું માર્ગદર્શન આપીશ.", processing: "વિચારી રહ્યો છું...", readNotice: "મારા માટે એક પત્ર વાંચો", suggestions: ["મારું વિધવા પેન્શન બંધ થઈ ગયું છે", "આવાસ યોજના માટે અરજી કેવી રીતે કરવી?", "નજીકની BDO ઑફિસ શોધો"], orgLogin: "સંસ્થા લૉગિન" },
     "pa-IN": { title: "ਭਾਰਤ ਸੇਵਾ", hero: "ਮਾਈਕ ਦਬਾਓ ਅਤੇ ਆਪਣੀ ਸਮੱਸਿਆ ਦੱਸੋ", subtitle: "ਮੈਂ ਤੁਹਾਡੀ ਭਾਸ਼ਾ ਵਿੱਚ ਕਦਮ-ਦਰ-ਕਦਮ ਤੁਹਾਡੀ ਅਗਵਾਈ ਕਰਾਂਗਾ।", processing: "ਸੋਚ ਰਿਹਾ ਹਾਂ...", readNotice: "ਮੇਰੇ ਲਈ ਇੱਕ ਚਿੱਠੀ ਪੜ੍ਹੋ", suggestions: ["ਮੇਰੀ ਵਿਧਵਾ ਪੈਨਸ਼ਨ ਰੁਕ ਗਈ ਹੈ", "ਆਵਾਸ ਯੋਜਨਾ ਲਈ ਅਰਜ਼ੀ ਕਿਵੇਂ ਦੇਣੀ ਹੈ?", "ਨਜ਼ਦੀਕੀ BDO ਦਫ਼ਤਰ ਲੱਭੋ"], orgLogin: "ਸੰਸਥਾ ਲੌਗਇਨ" },
-    "or-IN": { title: "ଭାରତ ସେବା", hero: "ମାଇକ୍ ଦବାନ୍ତୁ ଏବଂ ଆପଣଙ୍କର ସମସ୍ୟା କୁହନ୍ତୁ", subtitle: "ମୁଁ ଆପଣଙ୍କ ଭାଷାରେ ପଦକ୍ଷେପ ଅନୁଯାୟୀ ମାର୍ଗଦର୍ଶନ କରିବି |", processing: "ଭାବୁଛି...", readNotice: "ମୋ ପାଇଁ ଗୋଟିଏ ଚିଠି ପଢ଼ନ୍ତୁ", suggestions: ["ମୋର ବିଧବା ପେନ୍ସନ୍ ବନ୍ଦ ହୋଇଯାଇଛି", "ଆବାସ ଯୋଜନା ପାଇଁ କିପରି ଆବେਦନ କରିବେ?", "ନିକଟତମ BDO ଅଫିସ୍ ଖୋଜନ୍ତୁ"], orgLogin: "ସଂସ୍ଥା ଲଗଇନ୍" },
-    "ur-IN": { title: "بھارت سیوا", hero: "مائیک دبائیں اور اپنا مسئلہ بتائیں", subtitle: "میں آپ کی زبان में قدم بہ قدم آپ کی رہنمائی کروں گا۔", processing: "سوچ رہا ہوں...", readNotice: "میرے لیے ایک خط پڑھیں", suggestions: ["میری بیوہ پنشن بند ہو گئی ہے", "آواس یوجنا کے لیے کیسے اپلائی کریں؟", "قریبی بی ڈی او آفس تلاش کریں"], orgLogin: "ادارہ لاگ ان" }
+    "or-IN": { title: "ଭାରତ ସେବା", hero: "ମାଇକ୍ ଦବାନ୍ତୁ ଏବଂ ଆପଣଙ୍କର ସମସ୍ୟା କୁହନ୍ତୁ", subtitle: "ମୁଁ ଆପଣଙ୍କ ଭାଷାରେ ପଦକ୍ଷେପ ଅନୁଯାୟୀ ମାର୍ଗଦର୍ଶନ କରିବି |", processing: "ଭାବୁଛି...", readNotice: "ମୋ ପାଇଁ ଗୋଟିଏ ଚିଠି ପଢ଼ନ୍ତୁ", suggestions: ["ମୋର ବିଧବା ପେନ୍ସନ୍ ବନ୍ଦ ହୋଇଯାଇଛି", "ଆବାସ ଯୋଜନା ପାଇଁ କିପରି ଆବେଦନ କରିବେ?", "ନିକଟତମ BDO ଅଫିସ୍ ଖୋଜନ୍ତୁ"], orgLogin: "ସଂସ୍ଥା ଲଗଇନ୍" },
+    "ur-IN": { title: "بھارت سیوا", hero: "مائیک دبائیں اور اپنا مسئلہ بتائیں", subtitle: "میں آپ کی زبان میں قدم بہ قدم آپ کی رہنمائی کروں گا۔", processing: "سوچ رہا ہوں...", readNotice: "میرے لیے ایک خط پڑھیں", suggestions: ["میری بیوہ پنشن بند ہو گئی ہے", "آواس یوجنا کے لیے کیسے اپلائی کریں؟", "قریبی بی ڈی او آفس تلاش کریں"], orgLogin: "ادارہ لاگ ان" }
   };
 
   const t = labels[selectedLang.code] || labels["hi-IN"];
 
   if (response && !showReader) {
-    return <ActionDashboard response={response} language={selectedLang.code} onNewSearch={() => window.location.reload()} />;
+    return (
+      <ActionDashboard
+        response={response}
+        language={selectedLang.code}
+        onNewSearch={() => window.location.reload()}
+        audioMode={audioMode}
+        speakResponse={speakResponse}
+      />
+    );
   }
 
   if (showReader) {
@@ -127,7 +159,19 @@ const LandingPage = ({
               refreshTrigger={refreshTrigger}
             />
           )}
-          {activePanel === 'organizations' && <OrganizationsSidebar loading={loading} organizations={response?.matchingCommunities || []} />}
+          {activePanel === 'organizations' && (
+            <OrganizationsSidebar
+              organizations={allOrganizations}
+              loading={loadingOrgs}
+              onDirectQuery={(org) => {
+                // Set the query text or open a specialized UI
+                onChipSelect(`Requesting help from ${org.name}: `);
+              }}
+            />
+          )}
+          {activePanel === 'pulse' && (
+            <JanataPulse selectedLang={selectedLang} onMaximize={() => setShowFullPulse(true)} />
+          )}
         </div>
       </div>
 
@@ -144,6 +188,20 @@ const LandingPage = ({
           <div className="hidden lg:block"></div>
 
           <div className="flex items-center gap-4">
+            {/* Global Audio Mode Toggle */}
+            <button
+              onClick={toggleAudioMode}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all shadow-lg ${audioMode
+                ? 'bg-orange-500 border-orange-600 text-white animate-pulse'
+                : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300'
+                }`}
+            >
+              <div className={`w-3 h-3 rounded-full ${audioMode ? 'bg-white' : 'bg-gray-300'}`} />
+              <span className="text-sm font-bold uppercase tracking-wider">
+                {selectedLang.code === 'hi-IN' ? (audioMode ? 'ऑडियो चालू' : 'ऑडियो मोड') : (audioMode ? 'Audio ON' : 'Audio Mode')}
+              </span>
+            </button>
+
             <select
               value={selectedLang.code}
               onChange={(e) => onLangChange(languages.find(l => l.code === e.target.value))}
@@ -238,6 +296,24 @@ const LandingPage = ({
         onPostCreated={() => setRefreshTrigger(prev => prev + 1)}
         selectedLang={selectedLang}
       />
+
+      {/* Full Screen Janata Pulse Modal */}
+      {showFullPulse && (
+        <div className="fixed inset-0 z-[100] bg-white animate-fade-in flex flex-col">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+            <h2 className="text-xl font-black text-slate-800">Public Civic Dashboard</h2>
+            <button
+              onClick={() => setShowFullPulse(false)}
+              className="px-6 py-2 bg-slate-800 text-white font-bold rounded-xl shadow-lg active:scale-95 transition-all"
+            >
+              Close Dashboard
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            <JanataPulse selectedLang={selectedLang} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -31,17 +31,34 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState('citizen'); // 'citizen' or 'operator'
   const [operatorData, setOperatorData] = useState(null);
+  const [audioMode, setAudioMode] = useState(false);
 
   useEffect(() => {
     const hasSeen = localStorage.getItem('hasSeenOnboarding');
     if (!hasSeen) {
       setShowSplash(true);
     }
+    // Load audio mode preference
+    const savedAudioMode = localStorage.getItem('audioMode') === 'true';
+    setAudioMode(savedAudioMode);
   }, []);
 
   const handleSplashComplete = () => {
     localStorage.setItem('hasSeenOnboarding', 'true');
     setShowSplash(false);
+  };
+
+  const toggleAudioMode = () => {
+    const newVal = !audioMode;
+    setAudioMode(newVal);
+    localStorage.setItem('audioMode', newVal.toString());
+
+    // Welcome/Intro audio for the mode
+    if (newVal) {
+      speakResponse(selectedLang.name === 'Hindi'
+        ? "ऑडियो मोड चालू है। अब मैं आपको हर जानकारी पढ़कर सुनाऊँगी।"
+        : "Audio mode is on. I will now read out every information to you.");
+    }
   };
 
   const BACKEND_URL = endpoints.processQuery;
@@ -89,8 +106,12 @@ const App = () => {
     let userLocation = {};
     try {
       if ('geolocation' in navigator) {
+        console.log("Requesting Location...");
         const pos = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 6000 });
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 8000,
+            enableHighAccuracy: true
+          });
         });
         userLocation = {
           latitude: pos.coords.latitude,
@@ -99,7 +120,7 @@ const App = () => {
         console.log("Captured Location:", userLocation);
       }
     } catch (err) {
-      console.log("Location access denied or timeout.", err);
+      console.warn("Location access denied or timeout. Janata Pulse will use district-level defaults.", err);
     }
 
     try {
@@ -155,6 +176,7 @@ const App = () => {
     <div className="min-h-screen bg-orange-50 font-sans text-gray-900 relative">
       {showSplash && <OnboardingSplash onComplete={handleSplashComplete} />}
 
+
       {/* Operator Login Entry Point (Hidden in plain sight for demo) */}
       <div
         className="absolute bottom-4 right-4 z-50 opacity-10 hover:opacity-100 cursor-pointer transition-opacity"
@@ -176,6 +198,9 @@ const App = () => {
         onLangChange={setSelectedLang}
         languages={LANGUAGES}
         onChipSelect={handleChipSelect}
+        audioMode={audioMode}
+        toggleAudioMode={toggleAudioMode}
+        speakResponse={speakResponse}
         onOrgLogin={(data) => {
           setUserRole('operator');
           setOperatorData(data);

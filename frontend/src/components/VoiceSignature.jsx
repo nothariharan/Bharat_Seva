@@ -7,6 +7,7 @@ const VoiceSignature = ({ language, onComplete }) => {
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState(null);
     const [uploadState, setUploadState] = useState('idle'); // idle, uploading, done
+    const [verificationHash, setVerificationHash] = useState(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
@@ -54,6 +55,7 @@ const VoiceSignature = ({ language, onComplete }) => {
             const res = await axios.post(endpoints.voiceSignature, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
+            setVerificationHash(res.data.verificationHash);
             setUploadState('done');
             onComplete(res.data.qrCodeData); // Pass QR back
         } catch (err) {
@@ -101,6 +103,12 @@ const VoiceSignature = ({ language, onComplete }) => {
                     <div className="flex flex-col items-center text-green-600">
                         <CheckCircle size={48} className="mb-4" />
                         <p className="font-bold text-lg">Signature Saved!</p>
+                        {verificationHash && (
+                            <div className="mt-4 p-2 bg-gray-50 rounded border border-gray-100 w-full">
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Verification Hash (SHA-256)</p>
+                                <p className="text-[10px] font-mono text-gray-600 break-all">{verificationHash}</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

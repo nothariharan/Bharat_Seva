@@ -1,6 +1,7 @@
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const s3 = new S3Client({
     region: process.env.AWS_REGION,
@@ -19,6 +20,10 @@ const uploadVoiceSignature = async (req, res) => {
             return res.status(400).json({ error: 'Audio file is required' });
         }
         const audioBuffer = req.file.buffer;
+
+        // Generate SHA-256 hash for tamper-evidence
+        const hash = crypto.createHash('sha256').update(audioBuffer).digest('hex');
+
         const fileKey = `signatures/${uuidv4()}.wav`;
 
         await s3.send(new PutObjectCommand({
@@ -26,6 +31,9 @@ const uploadVoiceSignature = async (req, res) => {
             Key: fileKey,
             Body: audioBuffer,
             ContentType: 'audio/wav',
+            Metadata: {
+                'sha256-hash': hash
+            }
         }));
 
         // Presigned URL valid for 7 years
@@ -39,6 +47,7 @@ const uploadVoiceSignature = async (req, res) => {
             presignedUrl,
             qrCodeData: presignedUrl,
             fileKey,
+            verificationHash: hash,
             expiresAt: new Date(Date.now() + 7 * 365 * 24 * 60 * 60 * 1000).toISOString(),
         });
 

@@ -9,17 +9,17 @@ const fieldMappings = {
     form_6b: {
         electorNameTop: { type: 'text', x: 76, y: 688, maxWidth: 150, size: 8 },
         constituencyName: { type: 'text', x: 358, y: 688, maxWidth: 185, size: 8 },
-        epicNumber: { type: 'text', x: 308, y: 666, maxWidth: 210, size: 8 },
+        epicNumber: { type: 'text', x: 318, y: 666, maxWidth: 210, size: 8 },
         aadhaarChoice: {
             type: 'checkboxGroup',
             options: {
-                has_aadhaar: { x: 68, y: 594 },
+                has_aadhaar: { x: 74, y: 594 },
                 no_aadhaar: { x: 68, y: 552 }
             }
         },
         aadhaarNumber: {
             type: 'digitBoxes',
-            x: 166,
+            x: 176,
             y: 599,
             boxStep: 27,
             maxDigits: 12,

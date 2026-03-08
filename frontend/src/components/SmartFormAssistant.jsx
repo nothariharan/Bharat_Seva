@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Mic, FileText, Download, Loader2, CheckCircle2 } from 'lucide-react';
 import { endpoints } from '../config/api';
@@ -26,11 +26,8 @@ const normalizeLocaleDigits = (value = '') => value
 const normalizeNumericAnswer = (raw = '') => {
     const text = normalizeLocaleDigits(String(raw).toLowerCase());
     const wordMap = {
-        zero: '0', oh: '0', o: '0',
-        one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9',
-        ten: '10', eleven: '11', twelve: '12',
+        zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9',
         ek: '1', do: '2', teen: '3', tin: '3', char: '4', chaar: '4', paanch: '5', panch: '5', chhe: '6', saat: '7', aath: '8', nau: '9',
-        ஒன்று: '1', இரண்டு: '2', மூன்று: '3', நான்கு: '4', ஐந்து: '5', ஆறு: '6', ஏழு: '7', எட்டு: '8', ஒன்பது: '9', பூஜ்யம்: '0',
         onnu: '1', rendu: '2', moondru: '3', naangu: '4', aindhu: '5', aaru: '6', ezhu: '7', ettu: '8', onbadhu: '9'
     };
 
@@ -51,7 +48,7 @@ const normalizeNumericAnswer = (raw = '') => {
 const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentName = 'Document Form', onComplete }) => {
     const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
     const [formData, setFormData] = useState({});
-    const [capturedAnswers, setCapturedAnswers] = useState([]);
+    const [typedAnswer, setTypedAnswer] = useState('');
     const [isListening, setIsListening] = useState(false);
     const [error, setError] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
@@ -65,12 +62,20 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
         [fieldsNeeded]
     );
     const currentField = normalizedFields[currentFieldIndex] || null;
-    const allFieldsCaptured = normalizedFields.length > 0 && currentFieldIndex >= normalizedFields.length;
+
+    const isFieldFilled = (field) => Boolean(String(formData[field] || '').trim());
+    const allFieldsCaptured = normalizedFields.length > 0 && normalizedFields.every(isFieldFilled);
 
     const getFieldLabel = (fieldKey) => {
         const labels = FIELD_LABELS[fieldKey];
         if (!labels) return fieldKey;
         return isHindi ? labels.hi : labels.en;
+    };
+
+    const sanitizeForField = (field, value) => {
+        if (!value) return '';
+        if (NUMERIC_FIELDS.has(field)) return normalizeNumericAnswer(value);
+        return String(value).replace(/\s+/g, ' ').trim();
     };
 
     const speak = (text) => {
@@ -80,31 +85,50 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
             utterance.lang = langCode;
             window.speechSynthesis.speak(utterance);
         } catch (_) {
-            // no-op
+            // noop
         }
     };
 
     useEffect(() => {
         if (!currentField) return;
-        const numericHint = NUMERIC_FIELDS.has(currentField)
-            ? (isHindi ? ' Kripya number digit by digit boliye.' : ' Please speak digits one by one.')
-            : '';
-        const question = isHindi
-            ? `Kripya apna ${getFieldLabel(currentField)} batayein.${numericHint}`
-            : `Please tell me your ${getFieldLabel(currentField)}.${numericHint}`;
-        speak(question);
+        const prompt = NUMERIC_FIELDS.has(currentField)
+            ? (isHindi
+                ? `Kripya apna ${getFieldLabel(currentField)} digit by digit batayein.`
+                : `Please tell your ${getFieldLabel(currentField)} digit by digit.`)
+            : (isHindi
+                ? `Kripya apna ${getFieldLabel(currentField)} batayein.`
+                : `Please tell me your ${getFieldLabel(currentField)}.`);
+        speak(prompt);
+        setTypedAnswer(formData[currentField] || '');
     }, [currentField, isHindi]);
 
     useEffect(() => {
         return () => {
-            if (recognitionRef.current) {
-                recognitionRef.current.abort();
-            }
-            if (generatedPdfBlobUrl) {
-                URL.revokeObjectURL(generatedPdfBlobUrl);
-            }
+            if (recognitionRef.current) recognitionRef.current.abort();
+            if (generatedPdfBlobUrl) URL.revokeObjectURL(generatedPdfBlobUrl);
         };
     }, [generatedPdfBlobUrl]);
+
+    const saveFieldValue = (field, rawValue, moveNext = true) => {
+        const cleaned = sanitizeForField(field, rawValue);
+        if (!cleaned) {
+            setError(NUMERIC_FIELDS.has(field)
+                ? 'Please provide digits only for this field.'
+                : 'Please provide a valid value.');
+            return false;
+        }
+
+        setFormData((prev) => ({ ...prev, [field]: cleaned }));
+        setError('');
+
+        if (moveNext) {
+            setCurrentFieldIndex((prev) => {
+                const next = Math.min(prev + 1, normalizedFields.length - 1);
+                return next;
+            });
+        }
+        return true;
+    };
 
     const handleVoiceCapture = () => {
         setError('');
@@ -122,24 +146,15 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
         recognitionRef.current = recognition;
 
         recognition.onstart = () => setIsListening(true);
-
         recognition.onresult = (event) => {
-            const answer = event.results?.[0]?.[0]?.transcript?.trim() || '';
-            if (!answer) return;
-
-            const normalizedAnswer = NUMERIC_FIELDS.has(currentField)
-                ? normalizeNumericAnswer(answer)
-                : answer.replace(/\s+/g, ' ').trim();
-
-            setFormData((prev) => ({ ...prev, [currentField]: normalizedAnswer || answer }));
-            setCapturedAnswers((prev) => [...prev, { field: currentField, value: normalizedAnswer || answer }]);
-            setCurrentFieldIndex((prev) => prev + 1);
+            const transcript = event.results?.[0]?.[0]?.transcript?.trim() || '';
+            if (!transcript) return;
+            const ok = saveFieldValue(currentField, transcript, true);
+            if (ok) setTypedAnswer('');
         };
-
         recognition.onerror = () => {
-            setError(isHindi ? 'Voice input failed. Dobara koshish karein.' : 'Voice input failed. Please try again.');
+            setError('Voice input failed. Please try again.');
         };
-
         recognition.onend = () => setIsListening(false);
         recognition.start();
     };
@@ -149,6 +164,10 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
             setError('Missing template id.');
             return;
         }
+        if (!allFieldsCaptured) {
+            setError('Please fill all fields before generating.');
+            return;
+        }
 
         setIsGenerating(true);
         setError('');
@@ -156,20 +175,20 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
         try {
             const response = await axios.post(
                 endpoints.generatePdf,
-                {
-                    template_id: templateId,
-                    formData
-                },
+                { template_id: templateId, formData },
                 { responseType: 'blob' }
             );
 
-            if (generatedPdfBlobUrl) {
-                URL.revokeObjectURL(generatedPdfBlobUrl);
-            }
-
+            if (generatedPdfBlobUrl) URL.revokeObjectURL(generatedPdfBlobUrl);
             const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
             setGeneratedPdfBlobUrl(url);
-            if (onComplete) onComplete(formData);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `filled_${templateId}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         } catch (err) {
             setError(err?.response?.data?.error || 'Failed to generate PDF. Please retry.');
         } finally {
@@ -185,19 +204,27 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
                         <FileText className="text-orange-600" size={20} />
                         <h2 className="text-lg font-bold text-gray-800">{documentName}</h2>
                     </div>
-
-                    <p className="text-sm text-gray-600 mb-4">
-                        {isHindi ? 'Fields collected using voice assistant:' : 'Fields collected using voice assistant:'}
-                    </p>
-
+                    <p className="text-sm text-gray-600 mb-4">You can type directly in any field.</p>
                     <div className="space-y-3">
                         {normalizedFields.map((field, idx) => {
-                            const value = formData[field];
-                            const isActive = idx === currentFieldIndex && !allFieldsCaptured;
+                            const isActive = field === currentField && !allFieldsCaptured;
                             return (
                                 <div key={field} className={`rounded-lg border p-3 ${isActive ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'}`}>
                                     <p className="text-xs font-semibold text-gray-500 uppercase">{getFieldLabel(field)}</p>
-                                    <p className="text-sm font-medium text-gray-800 mt-1">{value || '...'}</p>
+                                    <input
+                                        value={formData[field] || ''}
+                                        onChange={(e) => {
+                                            const cleaned = sanitizeForField(field, e.target.value);
+                                            setFormData((prev) => ({ ...prev, [field]: cleaned }));
+                                            if (field === currentField) setTypedAnswer(cleaned);
+                                        }}
+                                        inputMode={NUMERIC_FIELDS.has(field) ? 'numeric' : 'text'}
+                                        className="w-full mt-1 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800"
+                                        placeholder={NUMERIC_FIELDS.has(field) ? 'Digits only' : 'Type here'}
+                                    />
+                                    {!isFieldFilled(field) && (
+                                        <p className="text-xs text-gray-400 mt-1">Required</p>
+                                    )}
                                 </div>
                             );
                         })}
@@ -209,35 +236,40 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
                 {!allFieldsCaptured && currentField && (
                     <>
                         <p className="text-sm font-semibold text-orange-600 mb-2">
-                            {isHindi ? `Prashn ${currentFieldIndex + 1} / ${normalizedFields.length}` : `Question ${currentFieldIndex + 1} / ${normalizedFields.length}`}
+                            {`Question ${currentFieldIndex + 1} / ${normalizedFields.length}`}
                         </p>
-                        <h3 className="text-2xl font-bold text-gray-900 mb-8">
-                            {isHindi
-                                ? `Kripya apna ${getFieldLabel(currentField)} batayein`
-                                : `Please tell me your ${getFieldLabel(currentField)}`}
+                        <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                            {`Please provide ${getFieldLabel(currentField)}`}
                         </h3>
-                        <button
-                            onClick={handleVoiceCapture}
-                            className={`relative w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
-                        >
-                            <Mic size={42} />
-                        </button>
-                        <p className="mt-4 text-sm text-gray-500">
-                            {isListening ? (isHindi ? 'Sun raha hoon...' : 'Listening...') : (isHindi ? 'Bolne ke liye tap karein' : 'Tap to speak')}
-                        </p>
+                        <input
+                            value={typedAnswer}
+                            onChange={(e) => setTypedAnswer(sanitizeForField(currentField, e.target.value))}
+                            inputMode={NUMERIC_FIELDS.has(currentField) ? 'numeric' : 'text'}
+                            className="w-full max-w-sm border border-gray-300 rounded-lg px-4 py-3 text-base mb-4"
+                            placeholder={NUMERIC_FIELDS.has(currentField) ? 'Enter digits' : 'Type answer'}
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => saveFieldValue(currentField, typedAnswer, true)}
+                                className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-5 rounded-xl shadow-lg"
+                            >
+                                Save & Next
+                            </button>
+                            <button
+                                onClick={handleVoiceCapture}
+                                className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
+                            >
+                                <Mic size={24} />
+                            </button>
+                        </div>
                     </>
                 )}
 
                 {allFieldsCaptured && (
                     <>
                         <CheckCircle2 className="text-green-600 mb-3" size={56} />
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                            {isHindi ? 'Saare fields collect ho gaye.' : 'All fields collected.'}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-6">
-                            {isHindi ? 'Ab document generate karein.' : 'Generate your document now.'}
-                        </p>
-
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">All fields captured.</h3>
+                        <p className="text-sm text-gray-600 mb-6">Generate and download your PDF now.</p>
                         <button
                             onClick={generateDocument}
                             disabled={isGenerating}
@@ -248,24 +280,27 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
                         </button>
 
                         {generatedPdfBlobUrl && (
-                            <a
-                                href={generatedPdfBlobUrl}
-                                download={`filled_${templateId}.pdf`}
-                                className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg inline-flex items-center gap-2"
-                            >
-                                <Download size={18} />
-                                Download PDF
-                            </a>
+                            <>
+                                <a
+                                    href={generatedPdfBlobUrl}
+                                    download={`filled_${templateId}.pdf`}
+                                    className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg inline-flex items-center gap-2"
+                                >
+                                    <Download size={18} />
+                                    Download PDF
+                                </a>
+                                <button
+                                    onClick={() => onComplete && onComplete(formData)}
+                                    className="mt-3 text-sm text-gray-700 underline"
+                                >
+                                    Back to Plan
+                                </button>
+                            </>
                         )}
                     </>
                 )}
 
                 {error && <p className="mt-4 text-sm font-medium text-red-600">{error}</p>}
-                {capturedAnswers.length > 0 && (
-                    <p className="mt-4 text-xs text-gray-400">
-                        {capturedAnswers.length} {isHindi ? 'answers captured' : 'answers captured'}
-                    </p>
-                )}
             </div>
         </div>
     );

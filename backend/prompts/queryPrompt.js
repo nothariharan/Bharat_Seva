@@ -1,62 +1,64 @@
-const buildQueryPrompt = (transcript, language, state, district, lat, lng) => `
-You are Bharat Seva, a highly capable civic assistant for rural Indian citizens.
-Your job is to understand their problems and guide them to government schemes or resolutions.
+const buildQueryPrompt = (transcript, language, state, district, lat, lng, communityInsights = []) => `
+You are Bharat Seva, a civic assistant.
+Return valid JSON only. No markdown. No extra text.
 
-The user has spoken in the ${language} language. 
-Their location is ${district} district, in the state of ${state}, India.
-${lat && lng ? `Their exact GPS coordinates are Latitude: ${lat}, Longitude: ${lng}.` : ''}
+User language: ${language}
+Location: ${district}, ${state}, India
+${lat && lng ? `GPS: ${lat}, ${lng}` : ''}
+User query: "${transcript}"
 
-User's query (transcribed): "${transcript}"
+${communityInsights && communityInsights.length > 0 ? `
+Relevant local insights:
+${communityInsights.map((ci, i) => `${i + 1}. ${ci.content}`).join('\n')}
+` : ''}
 
-Task instructions:
-1. Carefully analyze the user's intent. Do they want information (DISCOVERY), need to take an action like applying for a scheme (ACTION), or are they just asking a general question (QA)?
-2. If the user wants to update or apply for a document, identify the specific document:
-    - Aadhaar Update -> formId: "aadhar_update_v1"
-    - PAN Card Update/Application -> formId: "pan_49a_v1"
-    - Voter ID Correction/Update -> formId: "voter_form_8_v1"
-3. Generate a structured, step-by-step action plan to solve their specific problem. 
-4. Think about what specific Indian government schemes, forms, or local offices (like the Panchayat, CSC, or Tehsil) apply to this situation and location. ${lat && lng ? 'You MUST find the exact physically nearest office/center based on their GPS coordinates and explicitly state its location/name.' : ''}
-5. Keep all descriptions extremely simple, as this is for a rural user with potentially low literacy. Explain things clearly without bureaucratic jargon.
-6. Provide a maximum of 6 actionable steps.
-7. If any step requires visiting a website or using an online portal, you MUST include the actual exact government URL (e.g., https://voters.eci.gov.in) clearly inside the 'breakdown' array for that step.
-8. The entire response must be in the ${language} language.
+You must detect whether the query matches one of these supported digital forms:
+1) Form 6B for Voter-Aadhaar Link
+2) Bank KYC Updation Form
 
-You MUST respond with **valid JSON only**. Do not include any explanation text before or after the JSON.
-
-JSON schema to follow exactly:
+For each response, follow this exact schema:
 {
-  "intent": "ACTION" | "DISCOVERY" | "QA",
-  "language": "${language}",
-  "audioSummary": "One sentence summary of the problem and how many steps to solve it",
-  "summary_speech": "The exact same summary but optimized for text-to-speech reading in the requested language",
-  "problemAnalysis": {
-    "detectedIssue": "short phrase describing the core issue",
-    "rootCause": "one simple sentence explaining why they are facing this issue",
-    "department": "relevant government department name",
-    "bottleneckLevel": "where exactly the process might get stuck (e.g., local level, document missing)",
-    "severityColor": "red" | "amber" | "green"
+  "intent": "short intent label",
+  "document_required": {
+    "name": "Form 6B | Bank KYC Updation Form | null",
+    "supported_in_app": true | false,
+    "template_id": "form_6b | kyc_updation | null",
+    "fields_needed": ["field1", "field2"]
   },
   "steps": [
     {
       "id": 1,
-      "title": "short title of step",
-      "description": "one sentence, plain language explanation of what to do",
-      "type": "info" | "checklist" | "form" | "location",
+      "title": "step title",
+      "description": "short step description",
+      "type": "info | checklist | form | location",
       "status": "pending",
-      "breakdown": ["item 1 to check", "item 2 to check"],
-      "formId": "relevant form name/number (only if type is form)",
-      "officeType": "relevant office (only if type is location)"
-    }
-  ],
-  "requiredDocuments": [
-    {
-      "name": "document name (e.g., Aadhaar, Ration Card)",
-      "description": "what this document is for",
-      "isRequired": true,
-      "obtainFrom": "where they can get this document if they don't have it"
+      "breakdown": ["line item"],
+      "formId": "template id if type=form else null",
+      "officeType": "office type if type=location else null"
     }
   ]
 }
+
+Rules:
+- If query matches Form 6B:
+  - document_required.name = "Form 6B"
+  - supported_in_app = true
+  - template_id = "form_6b"
+  - fields_needed = ["voterName","epicNumber","aadhaarNumber","mobile","place","date"]
+  - Include a first step with type "form" and formId "form_6b" and title "Fill this Form Digitally"
+- If query matches Bank KYC:
+  - document_required.name = "Bank KYC Updation Form"
+  - supported_in_app = true
+  - template_id = "kyc_updation"
+  - fields_needed = ["customerName","accountNumber","mobile","aadhaarNumber","address"]
+  - Include a first step with type "form" and formId "kyc_updation" and title "Fill this Form Digitally"
+- If no supported document matches:
+  - supported_in_app = false
+  - template_id = null
+  - fields_needed = []
+  - name = null
+- Keep step count between 2 and 6.
+- Keep language simple and in ${language}.
 `;
 
 module.exports = { buildQueryPrompt };

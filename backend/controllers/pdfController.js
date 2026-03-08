@@ -2,6 +2,7 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 const { pdfCoordinates, templatesMap } = require('../config/pdfCoordinates');
+const { templateMap, fieldMappings, textStyle } = require('../config/pdfMappings');
 
 // New Calibration Endpoint for Testing Exact Checkmark/Text Alignment
 const calibratePdf = async (req, res) => {
@@ -135,4 +136,55 @@ const fillPdf = async (req, res) => {
     }
 };
 
-module.exports = { fillPdf, calibratePdf };
+const generatePdf = async (req, res) => {
+    try {
+        const { template_id, formData } = req.body;
+
+        if (!template_id || !formData || typeof formData !== 'object') {
+            return res.status(400).json({ error: 'template_id and formData are required' });
+        }
+
+        const templateRelativePath = templateMap[template_id];
+        const templateFieldMap = fieldMappings[template_id];
+
+        if (!templateRelativePath || !templateFieldMap) {
+            return res.status(400).json({ error: 'Invalid or unsupported template_id' });
+        }
+
+        const templatePath = path.join(__dirname, '..', '..', templateRelativePath);
+        if (!fs.existsSync(templatePath)) {
+            return res.status(404).json({ error: 'Template PDF not found' });
+        }
+
+        const existingPdfBytes = fs.readFileSync(templatePath);
+        const pdfDoc = await PDFDocument.load(existingPdfBytes);
+        const page = pdfDoc.getPages()[0];
+
+        for (const [fieldKey, rawValue] of Object.entries(formData)) {
+            const coordinate = templateFieldMap[fieldKey];
+            if (!coordinate) continue;
+
+            const value = String(rawValue ?? '').trim();
+            if (!value) continue;
+
+            page.drawText(value.slice(0, textStyle.maxChars), {
+                x: coordinate.x,
+                y: coordinate.y,
+                size: coordinate.size || textStyle.size,
+                lineHeight: coordinate.lineHeight || textStyle.lineHeight,
+                maxWidth: coordinate.maxWidth,
+                color: rgb(0, 0, 0)
+            });
+        }
+
+        const pdfBytes = await pdfDoc.save();
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=filled_${template_id}.pdf`);
+        return res.status(200).send(Buffer.from(pdfBytes));
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        return res.status(500).json({ error: 'Could not generate PDF. Please try again.' });
+    }
+};
+
+module.exports = { fillPdf, calibratePdf, generatePdf };

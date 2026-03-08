@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Volume2, VolumeX, ArrowLeft, Download, MessageCircle, MessageSquare } from 'lucide-react';
+import { Volume2, VolumeX, ArrowLeft, Download, MessageCircle, MessageSquare, ShieldAlert } from 'lucide-react';
 import DiagnosticTicket from './DiagnosticTicket';
 import SevaRoadmap from './SevaRoadmap';
 import SmartFormAssistant from './SmartFormAssistant';
@@ -10,11 +10,13 @@ import ChatSidebar from './ChatSidebar';
 import CommunityCard from './CommunityCard';
 import { endpoints } from '../config/api';
 
-const ActionDashboard = ({ response, language, onNewSearch }) => {
+const ActionDashboard = ({ response, language, onNewSearch, audioMode, speakResponse }) => {
   const [view, setView] = useState('main'); // 'main', 'form', 'signature'
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeStepId, setActiveStepId] = useState(null);
   const [activeFormId, setActiveFormId] = useState(null);
+  const [activeFieldsNeeded, setActiveFieldsNeeded] = useState([]);
+  const [activeDocumentName, setActiveDocumentName] = useState(null);
   const [locationData, setLocationData] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -77,9 +79,11 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
     setIsExporting(false);
   };
 
-  const handleFormClick = (formId, stepId) => {
+  const handleFormClick = (formId, stepId, fieldsNeeded = [], documentName = null) => {
     setActiveStepId(stepId);
     setActiveFormId(formId);
+    setActiveFieldsNeeded(fieldsNeeded);
+    setActiveDocumentName(documentName);
     setView('form');
   };
 
@@ -96,6 +100,14 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
 
   const handleFormComplete = (answers) => {
     console.log("Form answers:", answers);
+    if (activeFormId === 'form_6b' || activeFormId === 'kyc_updation') {
+      if (activeStepId) {
+        const step = response.steps.find(s => s.id === activeStepId);
+        if (step) step.status = 'complete';
+      }
+      setView('main');
+      return;
+    }
     setView('signature');
   };
 
@@ -171,6 +183,20 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
       {view === 'main' && (
         <div className="w-full max-w-5xl flex flex-col gap-6">
 
+          {/* Proactive Alerts (Middleman, Expiry, etc) */}
+          {response.proactiveAlert && (
+            <div className={`p-6 rounded-2xl border-4 animate-bounce-subtle z-10 flex items-center gap-4 ${response.proactiveAlert.severity === 'CRITICAL'
+                ? 'bg-red-50 border-red-200 text-red-900'
+                : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}>
+              <ShieldAlert size={48} className={response.proactiveAlert.severity === 'CRITICAL' ? 'text-red-600' : 'text-amber-600'} />
+              <div>
+                <h4 className="text-xl font-black uppercase tracking-tight">{response.proactiveAlert.title}</h4>
+                <p className="text-lg font-bold opacity-90">{response.proactiveAlert.message}</p>
+              </div>
+            </div>
+          )}
+
           {/* Diagnostic Ticket (If Intent is ACTION or grievance-like, backend provides problemAnalysis) */}
           {response.problemAnalysis && (
             <DiagnosticTicket analysis={response.problemAnalysis} language={language} />
@@ -216,6 +242,9 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
               language={language}
               onFormStepClick={handleFormClick}
               onLocationStepClick={handleLocationClick}
+              audioMode={audioMode}
+              speakResponse={speakResponse}
+              documentRequired={response.document_required}
             />
           </div>
 
@@ -273,7 +302,9 @@ const ActionDashboard = ({ response, language, onNewSearch }) => {
         <div className="w-full max-w-6xl mt-4">
           <SmartFormAssistant
             language={{ code: language }}
-            formId={activeFormId}
+            templateId={activeFormId}
+            fieldsNeeded={activeFieldsNeeded?.length ? activeFieldsNeeded : (response.document_required?.fields_needed || [])}
+            documentName={activeDocumentName || response.document_required?.name || 'Document Form'}
             onComplete={handleFormComplete}
           />
         </div>

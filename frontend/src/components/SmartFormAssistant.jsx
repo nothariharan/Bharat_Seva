@@ -1,203 +1,162 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Mic, CheckCircle, Expand, Camera } from 'lucide-react';
-import Webcam from 'react-webcam';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { Mic, FileText, Download, Loader2, CheckCircle2 } from 'lucide-react';
 import { endpoints } from '../config/api';
 
-const formConfigs = {
-    'aadhar_update_v1': {
-        name: "Aadhaar Update",
-        expectedDocumentType: 'aadhaar',
-        fields: [
-            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
-            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 160, w: 200, h: 25 },
-            { id: "address", label: { "en-IN": "Address", "hi-IN": "पता" }, x: 150, y: 200, w: 300, h: 25 },
-            { id: "idNumber", label: { "en-IN": "Aadhaar Number", "hi-IN": "आधार नंबर" }, x: 150, y: 240, w: 200, h: 25 }
-        ],
-        questions: [
-            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
-            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
-            { fieldId: "address", q: { "en-IN": "Where do you live?", "hi-IN": "आपका पूरा पता क्या है?" } },
-            { fieldId: "idNumber", q: { "en-IN": "What is your Aadhaar number?", "hi-IN": "आपका आधार नंबर क्या है?" } }
-        ],
-        scanMsg: { "en-IN": "Scan Aadhaar to auto-fill", "hi-IN": "आधार स्कैन करें" },
-        mapping: (ext) => ({
-            name: ext.name,
-            dob: ext.dob,
-            address: ext.address,
-            idNumber: ext.uid_last4 ? "XXXX-XXXX-" + ext.uid_last4 : undefined
-        })
-    },
-    'pan_49a_v1': {
-        name: "PAN Card Application",
-        expectedDocumentType: 'pan',
-        fields: [
-            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
-            { id: "fatherName", label: { "en-IN": "Father's Name", "hi-IN": "पिता का नाम" }, x: 150, y: 160, w: 200, h: 25 },
-            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 200, w: 200, h: 25 },
-            { id: "panNumber", label: { "en-IN": "Existing PAN (if any)", "hi-IN": "पैन नंबर" }, x: 150, y: 240, w: 200, h: 25 }
-        ],
-        questions: [
-            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
-            { fieldId: "fatherName", q: { "en-IN": "What is your father's name?", "hi-IN": "आपके पिता का नाम क्या है?" } },
-            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
-            { fieldId: "panNumber", q: { "en-IN": "What is your PAN number?", "hi-IN": "आपका पैन नंबर क्या है?" } }
-        ],
-        scanMsg: { "en-IN": "Scan PAN Card to auto-fill", "hi-IN": "पैन कार्ड स्कैन करें" },
-        mapping: (ext) => ({
-            name: ext.name,
-            dob: ext.dob,
-            panNumber: ext.pan_number,
-            fatherName: ext.father_name
-        })
-    },
-    'voter_form_8_v1': {
-        name: "Voter ID Correction",
-        expectedDocumentType: 'voter_id',
-        fields: [
-            { id: "name", label: { "en-IN": "Full Name", "hi-IN": "पूरा नाम" }, x: 150, y: 120, w: 200, h: 25 },
-            { id: "epicNumber", label: { "en-IN": "EPIC Number", "hi-IN": "पहचान पत्र संख्या" }, x: 150, y: 160, w: 200, h: 25 },
-            { id: "dob", label: { "en-IN": "Date of Birth", "hi-IN": "जन्म तिथि" }, x: 150, y: 200, w: 200, h: 25 },
-            { id: "address", label: { "en-IN": "New Address", "hi-IN": "पता" }, x: 150, y: 240, w: 300, h: 25 }
-        ],
-        questions: [
-            { fieldId: "name", q: { "en-IN": "What is your full name?", "hi-IN": "आपका पूरा नाम क्या है?" } },
-            { fieldId: "epicNumber", q: { "en-IN": "What is your Voter ID EPIC number?", "hi-IN": "आपकी पहचान पत्र संख्या क्या है?" } },
-            { fieldId: "dob", q: { "en-IN": "What is your Date of Birth?", "hi-IN": "आपकी जन्म तिथि क्या है?" } },
-            { fieldId: "address", q: { "en-IN": "What is your correct address?", "hi-IN": "आपका सही पता क्या है?" } }
-        ],
-        scanMsg: { "en-IN": "Scan Voter ID to auto-fill", "hi-IN": "पहचान पत्र स्कैन करें" },
-        mapping: (ext) => ({
-            name: ext.name,
-            epicNumber: ext.epic_number,
-            dob: ext.dob,
-            address: ext.address
-        })
-    }
+const FIELD_LABELS = {
+    voterName: { en: 'Voter Name', hi: 'Voter Name' },
+    epicNumber: { en: 'EPIC Number', hi: 'EPIC Number' },
+    aadhaarNumber: { en: 'Aadhaar Number', hi: 'Aadhaar Number' },
+    mobile: { en: 'Mobile Number', hi: 'Mobile Number' },
+    place: { en: 'Place', hi: 'Place' },
+    date: { en: 'Date', hi: 'Date' },
+    customerName: { en: 'Customer Name', hi: 'Customer Name' },
+    accountNumber: { en: 'Account Number', hi: 'Account Number' },
+    address: { en: 'Address', hi: 'Address' }
 };
 
-const SmartFormAssistant = ({ language, formId = 'aadhar_update_v1', onComplete }) => {
-    const config = formConfigs[formId] || formConfigs['aadhar_update_v1'];
-    const [currentQIndex, setCurrentQIndex] = useState(0);
-    const [answers, setAnswers] = useState({});
-    const [isRecording, setIsRecording] = useState(false);
-    const [mode, setMode] = useState('scan'); // 'scan', 'camera', 'scanning', 'qa', 'done'
-    const webcamRef = useRef(null);
+const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentName = 'Document Form', onComplete }) => {
+    const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
+    const [formData, setFormData] = useState({});
+    const [capturedAnswers, setCapturedAnswers] = useState([]);
+    const [isListening, setIsListening] = useState(false);
+    const [error, setError] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedPdfBlobUrl, setGeneratedPdfBlobUrl] = useState('');
+    const recognitionRef = useRef(null);
+
+    const langCode = language?.code || 'en-IN';
+    const isHindi = langCode === 'hi-IN';
+    const normalizedFields = useMemo(
+        () => (Array.isArray(fieldsNeeded) ? fieldsNeeded.filter(Boolean) : []),
+        [fieldsNeeded]
+    );
+    const currentField = normalizedFields[currentFieldIndex] || null;
+    const allFieldsCaptured = normalizedFields.length > 0 && currentFieldIndex >= normalizedFields.length;
+
+    const getFieldLabel = (fieldKey) => {
+        const labels = FIELD_LABELS[fieldKey];
+        if (!labels) return fieldKey;
+        return isHindi ? labels.hi : labels.en;
+    };
 
     const speak = (text) => {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language.code;
-        window.speechSynthesis.speak(utterance);
+        try {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = langCode;
+            window.speechSynthesis.speak(utterance);
+        } catch (_) {
+            // no-op
+        }
     };
 
     useEffect(() => {
-        if (mode === 'scan') {
-            const msg = config.scanMsg[language.code] || config.scanMsg["hi-IN"];
-            speak(language.code === "en-IN" ? `Do you have your ${config.name}? We can scan it.` : `क्या आपके पास ${config.name} है? हम उसे स्कैन कर सकते हैं।`);
-        } else if (mode === 'qa' && currentQIndex < config.questions.length) {
-            speak(config.questions[currentQIndex].q[language.code] || config.questions[currentQIndex].q["hi-IN"]);
-        } else if (mode === 'done') {
-            speak(language.code === "en-IN" ? "Your form is complete." : "आपका फॉर्म तैयार है।");
-        }
-    }, [mode, currentQIndex, language, formId]);
+        if (!currentField) return;
+        const question = isHindi
+            ? `Kripya apna ${getFieldLabel(currentField)} batayein.`
+            : `Please tell me your ${getFieldLabel(currentField)}.`;
+        speak(question);
+    }, [currentField, isHindi]);
 
-    const handleMicTap = () => {
-        setIsRecording(true);
-        setTimeout(() => {
-            setIsRecording(false);
-            const fieldId = config.questions[currentQIndex].fieldId;
-            setAnswers(prev => ({ ...prev, [fieldId]: "Sample Answer " + fieldId }));
-
-            if (currentQIndex < config.questions.length - 1) {
-                setCurrentQIndex(prev => prev + 1);
-            } else {
-                setMode('done');
+    useEffect(() => {
+        return () => {
+            if (recognitionRef.current) {
+                recognitionRef.current.abort();
             }
-        }, 2000);
+            if (generatedPdfBlobUrl) {
+                URL.revokeObjectURL(generatedPdfBlobUrl);
+            }
+        };
+    }, [generatedPdfBlobUrl]);
+
+    const handleVoiceCapture = () => {
+        setError('');
+        if (!currentField) return;
+        if (!('webkitSpeechRecognition' in window)) {
+            setError('Speech recognition is not supported in this browser. Please use Chrome.');
+            return;
+        }
+
+        const recognition = new window.webkitSpeechRecognition();
+        recognition.lang = langCode;
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => setIsListening(true);
+
+        recognition.onresult = (event) => {
+            const answer = event.results?.[0]?.[0]?.transcript?.trim() || '';
+            if (!answer) return;
+
+            setFormData((prev) => ({ ...prev, [currentField]: answer }));
+            setCapturedAnswers((prev) => [...prev, { field: currentField, value: answer }]);
+            setCurrentFieldIndex((prev) => prev + 1);
+        };
+
+        recognition.onerror = () => {
+            setError(isHindi ? 'Voice input failed. Dobara koshish karein.' : 'Voice input failed. Please try again.');
+        };
+
+        recognition.onend = () => setIsListening(false);
+        recognition.start();
     };
 
-    const handleSkipScan = () => {
-        setMode('qa');
-    };
+    const generateDocument = async () => {
+        if (!templateId) {
+            setError('Missing template id.');
+            return;
+        }
 
-    const captureDocument = useCallback(async () => {
-        const imageSrc = webcamRef.current.getScreenshot();
-        if (!imageSrc) return;
+        setIsGenerating(true);
+        setError('');
 
-        setMode('scanning');
         try {
-            const res = await axios.post(endpoints.scanDocument, {
-                imageBase64: imageSrc,
-                expectedDocumentType: config.expectedDocumentType,
-                language: language.code.split('-')[0] // 'hi' or 'en'
-            });
+            const response = await axios.post(
+                endpoints.generatePdf,
+                {
+                    template_id: templateId,
+                    formData
+                },
+                { responseType: 'blob' }
+            );
 
-            if (res.data.isCorrectDocument) {
-                const ext = res.data.extractedFields || {};
-                const mappedAnswers = config.mapping(ext);
-                const newAnswers = { ...answers };
-                let lastFilledIndex = -1;
-
-                config.fields.forEach((f, idx) => {
-                    if (mappedAnswers[f.id]) {
-                        newAnswers[f.id] = mappedAnswers[f.id];
-                        lastFilledIndex = idx;
-                    }
-                });
-
-                setAnswers(newAnswers);
-                setCurrentQIndex(lastFilledIndex + 1 >= config.questions.length ? config.questions.length - 1 : lastFilledIndex + 1);
-
-                if (lastFilledIndex === config.fields.length - 1) {
-                    setMode('done');
-                } else {
-                    setMode('qa');
-                }
-            } else {
-                alert(res.data.rejectionMessage || "Could not read document. Please try again or skip.");
-                setMode('scan');
+            if (generatedPdfBlobUrl) {
+                URL.revokeObjectURL(generatedPdfBlobUrl);
             }
-        } catch (error) {
-            console.error("Scan Error:", error);
-            alert("Error analyzing document. Proceeding to voice Q&A.");
-            setMode('qa');
-        }
-    }, [webcamRef, answers, language, config]);
 
-    // UI Translation
-    const t = {
-        scanMsg: config.scanMsg[language.code] || config.scanMsg["hi-IN"],
-        scanBtn: language.code === "en-IN" ? "Scan Now" : "अभी स्कैन करें",
-        skipBtn: language.code === "en-IN" ? "Skip Scanning" : "सीधा शुरू करें",
-        qOf: language.code === "en-IN" ? "Q" : "सवाल",
-        doneBtn: language.code === "en-IN" ? "Proceed to Sign" : "आगे बढ़ें"
+            const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            setGeneratedPdfBlobUrl(url);
+            if (onComplete) onComplete(formData);
+        } catch (err) {
+            setError(err?.response?.data?.error || 'Failed to generate PDF. Please retry.');
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-[80vh] w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-100">
+        <div className="flex flex-col md:flex-row gap-4 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="w-full md:w-1/2 bg-orange-50 p-6 border-r border-orange-100">
+                <div className="bg-white rounded-xl border border-orange-100 shadow-sm p-5 min-h-[420px]">
+                    <div className="flex items-center gap-2 mb-4">
+                        <FileText className="text-orange-600" size={20} />
+                        <h2 className="text-lg font-bold text-gray-800">{documentName}</h2>
+                    </div>
 
-            {/* LEFT: PDF Form Preview */}
-            <div className="w-full md:w-1/2 bg-gray-100 p-4 border-r border-gray-200 relative overflow-y-auto min-h-[50vh]">
-                <div className="w-full max-w-sm mx-auto bg-white h-[600px] shadow-sm flex flex-col items-center justify-start p-8 relative">
-                    <h2 className="text-xl font-bold uppercase border-b-2 border-black pb-2 mb-8 text-black">{config.name}</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        {isHindi ? 'Fields collected using voice assistant:' : 'Fields collected using voice assistant:'}
+                    </p>
 
-                    <div className="w-full relative h-full">
-                        {config.fields.map(f => {
-                            const qIdx = config.questions.findIndex(mq => mq.fieldId === f.id);
-                            const isActive = mode === 'qa' && qIdx === currentQIndex;
-                            const isFilled = answers[f.id] !== undefined;
-
+                    <div className="space-y-3">
+                        {normalizedFields.map((field, idx) => {
+                            const value = formData[field];
+                            const isActive = idx === currentFieldIndex && !allFieldsCaptured;
                             return (
-                                <div
-                                    key={f.id}
-                                    className={`absolute flex items-center p-1 rounded transition-colors duration-300 ${isActive ? 'ring-2 ring-orange-500 bg-orange-50' : isFilled ? 'bg-green-50/50' : ''}`}
-                                    style={{ top: f.y, left: f.x - 100, width: "100%" }}
-                                >
-                                    <label className="text-xs font-bold w-24 shrink-0 text-black">{f.label[language.code] || f.label["hi-IN"]}:</label>
-                                    <div className={`flex-1 border-b ${isActive ? 'border-orange-500' : 'border-gray-400'} min-h-[20px] px-2 text-sm text-blue-900 font-medium`}>
-                                        {answers[f.id]}
-                                    </div>
+                                <div key={field} className={`rounded-lg border p-3 ${isActive ? 'border-orange-400 bg-orange-50' : 'border-gray-200 bg-white'}`}>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">{getFieldLabel(field)}</p>
+                                    <p className="text-sm font-medium text-gray-800 mt-1">{value || '...'}</p>
                                 </div>
                             );
                         })}
@@ -205,91 +164,68 @@ const SmartFormAssistant = ({ language, formId = 'aadhar_update_v1', onComplete 
                 </div>
             </div>
 
-            {/* RIGHT: Assistant Flow */}
-            <div className="w-full md:w-1/2 bg-white flex flex-col">
-                {mode === 'scan' ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                        <div className="w-24 h-24 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center shadow-lg mb-6">
-                            <Expand size={40} />
-                        </div>
-                        <h3 className="text-2xl font-bold text-gray-800 mb-2">{t.scanMsg}</h3>
-                        <div className="space-y-4 mt-8 w-full max-w-xs">
-                            <button onClick={() => setMode('camera')} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-all text-lg flex items-center justify-center gap-2">
-                                <Camera size={24} />
-                                {t.scanBtn}
-                            </button>
-                            <button onClick={handleSkipScan} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-4 rounded-xl active:scale-95 transition-all">
-                                {t.skipBtn}
-                            </button>
-                        </div>
-                    </div>
-                ) : mode === 'camera' ? (
-                    <div className="flex-1 flex flex-col items-center justify-center bg-black relative">
-                        <Webcam
-                            audio={false}
-                            ref={webcamRef}
-                            screenshotFormat="image/jpeg"
-                            videoConstraints={{ facingMode: "environment" }}
-                            className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 border-[40px] border-black/50 pointer-events-none">
-                            <div className="w-full h-full border-2 border-dashed border-white/70"></div>
-                        </div>
-                        <div className="absolute bottom-10 w-full flex justify-center gap-4">
-                            <button
-                                onClick={captureDocument}
-                                className="w-16 h-16 bg-white rounded-full flex items-center justify-center border-4 border-gray-300 active:scale-95 transition-transform"
-                            >
-                                <Camera size={24} className="text-gray-900" />
-                            </button>
-                        </div>
-                        <button onClick={() => setMode('scan')} className="absolute top-4 right-4 bg-white/20 p-2 rounded-full text-white">
-                            X
+            <div className="w-full md:w-1/2 p-6 flex flex-col justify-center items-center text-center min-h-[420px]">
+                {!allFieldsCaptured && currentField && (
+                    <>
+                        <p className="text-sm font-semibold text-orange-600 mb-2">
+                            {isHindi ? `Prashn ${currentFieldIndex + 1} / ${normalizedFields.length}` : `Question ${currentFieldIndex + 1} / ${normalizedFields.length}`}
+                        </p>
+                        <h3 className="text-2xl font-bold text-gray-900 mb-8">
+                            {isHindi
+                                ? `Kripya apna ${getFieldLabel(currentField)} batayein`
+                                : `Please tell me your ${getFieldLabel(currentField)}`}
+                        </h3>
+                        <button
+                            onClick={handleVoiceCapture}
+                            className={`relative w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
+                        >
+                            <Mic size={42} />
                         </button>
-                    </div>
-                ) : mode === 'scanning' ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-gray-800">
-                        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <h3 className="text-2xl font-bold animate-pulse">Scanning Document...</h3>
-                        <p className="text-gray-500 mt-2">Extracting data via AI</p>
-                    </div>
-                ) : mode === 'qa' ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in relative">
-                        <div className="absolute top-8 left-8">
-                            <span className="bg-orange-100 text-orange-800 text-sm font-bold px-3 py-1 rounded-full uppercase tracking-widest">
-                                {t.qOf} {currentQIndex + 1} / {config.questions.length}
-                            </span>
-                        </div>
+                        <p className="mt-4 text-sm text-gray-500">
+                            {isListening ? (isHindi ? 'Sun raha hoon...' : 'Listening...') : (isHindi ? 'Bolne ke liye tap karein' : 'Tap to speak')}
+                        </p>
+                    </>
+                )}
 
-                        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12 mt-12 leading-tight">
-                            {config.questions[currentQIndex].q[language.code] || config.questions[currentQIndex].q["hi-IN"]}
-                        </h2>
+                {allFieldsCaptured && (
+                    <>
+                        <CheckCircle2 className="text-green-600 mb-3" size={56} />
+                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                            {isHindi ? 'Saare fields collect ho gaye.' : 'All fields collected.'}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-6">
+                            {isHindi ? 'Ab document generate karein.' : 'Generate your document now.'}
+                        </p>
 
                         <button
-                            onMouseDown={handleMicTap}
-                            onMouseUp={() => setIsRecording(false)}
-                            onTouchStart={handleMicTap}
-                            onTouchEnd={() => setIsRecording(false)}
-                            className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-orange-500 scale-95 shadow-inner' : 'bg-orange-100 hover:bg-orange-200 shadow-xl'}`}
+                            onClick={generateDocument}
+                            disabled={isGenerating}
+                            className="bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white font-bold py-3 px-6 rounded-xl shadow-lg flex items-center gap-2"
                         >
-                            <Mic size={48} className={isRecording ? 'text-white' : 'text-orange-600'} />
-                            {isRecording && <span className="absolute w-32 h-32 rounded-full border-4 border-orange-500 animate-ping opacity-50"></span>}
+                            {isGenerating ? <Loader2 size={18} className="animate-spin" /> : null}
+                            {isGenerating ? 'Generating...' : 'Generate Document'}
                         </button>
-                        <p className="mt-6 text-gray-500 font-medium">
-                            {isRecording ? "Listening..." : "Hold to speak"}
-                        </p>
-                    </div>
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
-                        <CheckCircle size={80} className="text-green-500 mb-6" />
-                        <h2 className="text-3xl font-bold text-gray-800 mb-8">Form Complete!</h2>
-                        <button onClick={() => onComplete(answers)} className="bg-orange-600 text-white py-4 px-8 rounded-xl font-bold shadow-xl hover:bg-orange-700 active:scale-95 text-xl">
-                            {t.doneBtn}
-                        </button>
-                    </div>
+
+                        {generatedPdfBlobUrl && (
+                            <a
+                                href={generatedPdfBlobUrl}
+                                download={`filled_${templateId}.pdf`}
+                                className="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg inline-flex items-center gap-2"
+                            >
+                                <Download size={18} />
+                                Download PDF
+                            </a>
+                        )}
+                    </>
+                )}
+
+                {error && <p className="mt-4 text-sm font-medium text-red-600">{error}</p>}
+                {capturedAnswers.length > 0 && (
+                    <p className="mt-4 text-xs text-gray-400">
+                        {capturedAnswers.length} {isHindi ? 'answers captured' : 'answers captured'}
+                    </p>
                 )}
             </div>
-
         </div>
     );
 };

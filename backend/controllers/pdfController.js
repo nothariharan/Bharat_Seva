@@ -197,35 +197,58 @@ const generatePdf = async (req, res) => {
         const page = pdfDoc.getPages()[0];
 
         const numericFields = new Set(numericFieldsByTemplate[template_id] || []);
-        for (const [fieldKey, rawValue] of Object.entries(formData)) {
+        const normalizedFormData = { ...formData };
+        if (template_id === 'form_6b' && normalizedFormData.electorNameTop && !normalizedFormData.electorNameBottom) {
+            normalizedFormData.electorNameBottom = normalizedFormData.electorNameTop;
+        }
+
+        const drawCheckmark = (coordinate) => {
+            page.drawText('X', {
+                x: coordinate.x + 2,
+                y: coordinate.y + 1,
+                size: 10,
+                color: rgb(0, 0, 0)
+            });
+        };
+
+        for (const [fieldKey, rawValue] of Object.entries(normalizedFormData)) {
             const coordinate = templateFieldMap[fieldKey];
             if (!coordinate) continue;
 
-            let value = sanitizeForPdf(rawValue);
-            if (numericFields.has(fieldKey)) {
-                value = normalizeNumericText(value);
+            if (coordinate.type === 'checkboxGroup') {
+                const selectedOption = String(rawValue || '').trim();
+                if (!selectedOption) continue;
+                const optionCoordinate = coordinate.options?.[selectedOption];
+                if (!optionCoordinate) continue;
+                drawCheckmark(optionCoordinate);
+                continue;
             }
 
+            let value = sanitizeForPdf(rawValue);
+            if (numericFields.has(fieldKey)) value = normalizeNumericText(value);
             if (!value) continue;
+
+            const textCoordinate = coordinate.type === 'text' || !coordinate.type ? coordinate : null;
+            if (!textCoordinate) continue;
 
             try {
                 page.drawText(value, {
-                    x: coordinate.x,
-                    y: coordinate.y,
-                    size: coordinate.size || textStyle.size,
-                    lineHeight: coordinate.lineHeight || textStyle.lineHeight,
-                    maxWidth: coordinate.maxWidth,
+                    x: textCoordinate.x,
+                    y: textCoordinate.y,
+                    size: textCoordinate.size || textStyle.size,
+                    lineHeight: textCoordinate.lineHeight || textStyle.lineHeight,
+                    maxWidth: textCoordinate.maxWidth,
                     color: rgb(0, 0, 0)
                 });
             } catch (drawError) {
                 const asciiFallback = value.replace(/[^\x20-\x7E]/g, '').trim();
                 if (!asciiFallback) continue;
                 page.drawText(asciiFallback, {
-                    x: coordinate.x,
-                    y: coordinate.y,
-                    size: coordinate.size || textStyle.size,
-                    lineHeight: coordinate.lineHeight || textStyle.lineHeight,
-                    maxWidth: coordinate.maxWidth,
+                    x: textCoordinate.x,
+                    y: textCoordinate.y,
+                    size: textCoordinate.size || textStyle.size,
+                    lineHeight: textCoordinate.lineHeight || textStyle.lineHeight,
+                    maxWidth: textCoordinate.maxWidth,
                     color: rgb(0, 0, 0)
                 });
                 console.warn(`Fallback used for field "${fieldKey}" due to draw error:`, drawError.message);

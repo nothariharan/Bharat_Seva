@@ -44,7 +44,7 @@ Rules:
   - document_required.name = "Form 6B"
   - supported_in_app = true
   - template_id = "form_6b"
-  - fields_needed = ["voterName","epicNumber","aadhaarNumber","mobile","place","date"]
+  - fields_needed = ["electorNameTop","constituencyName","epicNumber","aadhaarChoice","aadhaarNumber","supportingDocument","mobileOrEmail","place","date"]
   - Include a first step with type "form" and formId "form_6b" and title "Fill this Form Digitally"
 - If query matches Bank KYC:
   - document_required.name = "Bank KYC Updation Form"

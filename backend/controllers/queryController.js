@@ -7,7 +7,7 @@ const { saveLog } = require('./pulseController');
 const SUPPORTED_FORMS = {
     form_6b: {
         name: 'Form 6B',
-        fields_needed: ['voterName', 'epicNumber', 'aadhaarNumber', 'mobile', 'place', 'date']
+        fields_needed: ['electorNameTop', 'constituencyName', 'epicNumber', 'aadhaarChoice', 'aadhaarNumber', 'supportingDocument', 'mobileOrEmail', 'place', 'date']
     },
     kyc_updation: {
         name: 'Bank KYC Updation Form',

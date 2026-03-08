@@ -15,6 +15,39 @@ const FIELD_LABELS = {
     address: { en: 'Address', hi: 'Address' }
 };
 
+const NUMERIC_FIELDS = new Set(['accountNumber', 'mobile', 'aadhaarNumber']);
+
+const normalizeLocaleDigits = (value = '') => value
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/[०-९]/g, (d) => String(d.charCodeAt(0) - 2406))
+    .replace(/[௦-௯]/g, (d) => String(d.charCodeAt(0) - 3046));
+
+const normalizeNumericAnswer = (raw = '') => {
+    const text = normalizeLocaleDigits(String(raw).toLowerCase());
+    const wordMap = {
+        zero: '0', oh: '0', o: '0',
+        one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9',
+        ten: '10', eleven: '11', twelve: '12',
+        ek: '1', do: '2', teen: '3', tin: '3', char: '4', chaar: '4', paanch: '5', panch: '5', chhe: '6', saat: '7', aath: '8', nau: '9',
+        ஒன்று: '1', இரண்டு: '2', மூன்று: '3', நான்கு: '4', ஐந்து: '5', ஆறு: '6', ஏழு: '7', எட்டு: '8', ஒன்பது: '9', பூஜ்யம்: '0',
+        onnu: '1', rendu: '2', moondru: '3', naangu: '4', aindhu: '5', aaru: '6', ezhu: '7', ettu: '8', onbadhu: '9'
+    };
+
+    const tokens = text
+        .replace(/[^a-z0-9\u0900-\u097F\u0B80-\u0BFF\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const tokenDigits = tokens.map((token) => {
+        if (/^\d+$/.test(token)) return token;
+        return wordMap[token] || '';
+    }).join('');
+
+    const directDigits = text.replace(/\D/g, '');
+    return (tokenDigits || directDigits).replace(/\D/g, '');
+};
+
 const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentName = 'Document Form', onComplete }) => {
     const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
     const [formData, setFormData] = useState({});
@@ -53,9 +86,12 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
 
     useEffect(() => {
         if (!currentField) return;
+        const numericHint = NUMERIC_FIELDS.has(currentField)
+            ? (isHindi ? ' Kripya number digit by digit boliye.' : ' Please speak digits one by one.')
+            : '';
         const question = isHindi
-            ? `Kripya apna ${getFieldLabel(currentField)} batayein.`
-            : `Please tell me your ${getFieldLabel(currentField)}.`;
+            ? `Kripya apna ${getFieldLabel(currentField)} batayein.${numericHint}`
+            : `Please tell me your ${getFieldLabel(currentField)}.${numericHint}`;
         speak(question);
     }, [currentField, isHindi]);
 
@@ -82,6 +118,7 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
         recognition.lang = langCode;
         recognition.continuous = false;
         recognition.interimResults = false;
+        recognition.maxAlternatives = 3;
         recognitionRef.current = recognition;
 
         recognition.onstart = () => setIsListening(true);
@@ -90,8 +127,12 @@ const SmartFormAssistant = ({ templateId, fieldsNeeded = [], language, documentN
             const answer = event.results?.[0]?.[0]?.transcript?.trim() || '';
             if (!answer) return;
 
-            setFormData((prev) => ({ ...prev, [currentField]: answer }));
-            setCapturedAnswers((prev) => [...prev, { field: currentField, value: answer }]);
+            const normalizedAnswer = NUMERIC_FIELDS.has(currentField)
+                ? normalizeNumericAnswer(answer)
+                : answer.replace(/\s+/g, ' ').trim();
+
+            setFormData((prev) => ({ ...prev, [currentField]: normalizedAnswer || answer }));
+            setCapturedAnswers((prev) => [...prev, { field: currentField, value: normalizedAnswer || answer }]);
             setCurrentFieldIndex((prev) => prev + 1);
         };
 

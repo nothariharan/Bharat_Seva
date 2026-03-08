@@ -23,6 +23,11 @@ const fieldMappings = {
     }
 };
 
+const numericFieldsByTemplate = {
+    form_6b: ['aadhaarNumber', 'mobile'],
+    kyc_updation: ['accountNumber', 'mobile', 'aadhaarNumber']
+};
+
 const textStyle = {
     size: 9,
     lineHeight: 10,
@@ -32,5 +37,6 @@ const textStyle = {
 module.exports = {
     templateMap,
     fieldMappings,
+    numericFieldsByTemplate,
     textStyle
 };

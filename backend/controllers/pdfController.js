@@ -2,7 +2,43 @@ const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
 const { pdfCoordinates, templatesMap } = require('../config/pdfCoordinates');
-const { templateMap, fieldMappings, textStyle } = require('../config/pdfMappings');
+const { templateMap, fieldMappings, numericFieldsByTemplate, textStyle } = require('../config/pdfMappings');
+
+const normalizeLocaleDigits = (value = '') => value
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)) // Arabic-Indic
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)) // Eastern Arabic-Indic
+    .replace(/[०-९]/g, (d) => String(d.charCodeAt(0) - 2406)) // Devanagari
+    .replace(/[௦-௯]/g, (d) => String(d.charCodeAt(0) - 3046)); // Tamil digits
+
+const normalizeNumericText = (value = '') => {
+    const raw = normalizeLocaleDigits(String(value).toLowerCase());
+    const wordMap = {
+        zero: '0', oh: '0', o: '0',
+        one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9',
+        ek: '1', do: '2', teen: '3', tin: '3', char: '4', chaar: '4', paanch: '5', panch: '5', chhe: '6', saat: '7', aath: '8', nau: '9',
+        ஒன்று: '1', இரண்டு: '2', மூன்று: '3', நான்கு: '4', ஐந்து: '5', ஆறு: '6', ஏழு: '7', எட்டு: '8', ஒன்பது: '9', பூஜ்யம்: '0',
+        onnu: '1', rendu: '2', moondru: '3', naangu: '4', aindhu: '5', aaru: '6', ezhu: '7', ettu: '8', onbadhu: '9'
+    };
+
+    const tokens = raw
+        .replace(/[^a-z0-9\u0900-\u097F\u0B80-\u0BFF\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const resolved = tokens.map((token) => {
+        if (/^\d+$/.test(token)) return token;
+        return wordMap[token] || '';
+    }).join('');
+
+    const directDigits = raw.replace(/\D/g, '');
+    return (resolved || directDigits).replace(/\D/g, '');
+};
+
+const sanitizeForPdf = (value = '') => String(value)
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, textStyle.maxChars);
 
 // New Calibration Endpoint for Testing Exact Checkmark/Text Alignment
 const calibratePdf = async (req, res) => {
@@ -160,21 +196,40 @@ const generatePdf = async (req, res) => {
         const pdfDoc = await PDFDocument.load(existingPdfBytes);
         const page = pdfDoc.getPages()[0];
 
+        const numericFields = new Set(numericFieldsByTemplate[template_id] || []);
         for (const [fieldKey, rawValue] of Object.entries(formData)) {
             const coordinate = templateFieldMap[fieldKey];
             if (!coordinate) continue;
 
-            const value = String(rawValue ?? '').trim();
+            let value = sanitizeForPdf(rawValue);
+            if (numericFields.has(fieldKey)) {
+                value = normalizeNumericText(value);
+            }
+
             if (!value) continue;
 
-            page.drawText(value.slice(0, textStyle.maxChars), {
-                x: coordinate.x,
-                y: coordinate.y,
-                size: coordinate.size || textStyle.size,
-                lineHeight: coordinate.lineHeight || textStyle.lineHeight,
-                maxWidth: coordinate.maxWidth,
-                color: rgb(0, 0, 0)
-            });
+            try {
+                page.drawText(value, {
+                    x: coordinate.x,
+                    y: coordinate.y,
+                    size: coordinate.size || textStyle.size,
+                    lineHeight: coordinate.lineHeight || textStyle.lineHeight,
+                    maxWidth: coordinate.maxWidth,
+                    color: rgb(0, 0, 0)
+                });
+            } catch (drawError) {
+                const asciiFallback = value.replace(/[^\x20-\x7E]/g, '').trim();
+                if (!asciiFallback) continue;
+                page.drawText(asciiFallback, {
+                    x: coordinate.x,
+                    y: coordinate.y,
+                    size: coordinate.size || textStyle.size,
+                    lineHeight: coordinate.lineHeight || textStyle.lineHeight,
+                    maxWidth: coordinate.maxWidth,
+                    color: rgb(0, 0, 0)
+                });
+                console.warn(`Fallback used for field "${fieldKey}" due to draw error:`, drawError.message);
+            }
         }
 
         const pdfBytes = await pdfDoc.save();

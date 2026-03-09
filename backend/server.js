@@ -8,6 +8,21 @@ const connectDB = require('./config/db');
 connectDB();
 
 const app = express();
+
+// Health Check for Vercel diagnostics
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    env: process.env.NODE_ENV,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
+app.get('/', (req, res) => {
+  res.send('Bharat Seva API is running...');
+});
+
+const mongoose = require('mongoose');
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],

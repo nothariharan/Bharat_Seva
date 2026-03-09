@@ -1,12 +1,20 @@
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
+    if (mongoose.connection.readyState >= 1) return;
+
     try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI);
-        console.log(`MongoDB Connected: ${conn.connection.db.databaseName}`);
+        if (!process.env.MONGODB_URI) {
+            console.error("MONGODB_URI is missing in environment variables!");
+            return;
+        }
+        await mongoose.connect(process.env.MONGODB_URI, {
+            serverSelectionTimeoutMS: 5000 // 5 seconds timeout
+        });
+        console.log(`MongoDB Connected: ${mongoose.connection.db.databaseName}`);
     } catch (error) {
-        console.error(`Error: ${error.message}`);
-        process.exit(1);
+        console.error(`MongoDB Connection Error: ${error.message}`);
+        // Don't exit process in serverless; let it fail gracefully
     }
 };
 

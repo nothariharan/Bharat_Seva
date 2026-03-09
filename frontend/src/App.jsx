@@ -73,7 +73,8 @@ const App = () => {
     }
     const recognition = new window.webkitSpeechRecognition();
     recognition.lang = selectedLang.code;
-    recognition.continuous = false;
+    recognition.continuous = true;
+    recognition.interimResults = false;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -87,8 +88,18 @@ const App = () => {
       setTimeout(() => fetchSolution(text), 1000);
     };
 
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      // Auto-restart if we are still supposed to be listening (for continuous mode feel)
+      if (isListening) {
+        try { recognition.start(); } catch (e) { }
+      }
+    };
     recognition.start();
+  };
+
+  const stopListening = () => {
+    setIsListening(false);
+    // Recognition will stop on next onend cycle
   };
 
   // 2. Handle Text Input (from Chips)

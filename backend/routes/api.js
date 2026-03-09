@@ -23,8 +23,7 @@ router.post('/upload-voice-signature', upload.single('audio'), uploadVoiceSignat
 router.post('/context-chat', contextChat);
 router.post('/generate-pdf', generatePdf);
 
-// Pulse
-router.get('/pulse/summary', getPulseData);
+// Redundant pulse route removed (handled in pulseRoutes.js)
 
 // Communities
 router.get('/communities', getAllCommunities);

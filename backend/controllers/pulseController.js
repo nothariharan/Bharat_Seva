@@ -64,8 +64,15 @@ const getPulseData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Pulse aggregation error:', error);
-        res.status(500).json({ error: 'Failed to aggregate pulse data' });
+        console.error('Pulse aggregation error details:', {
+            message: error.message,
+            stack: error.stack,
+            dbState: mongoose.connection.readyState
+        });
+        res.status(500).json({
+            error: 'Failed to aggregate pulse data',
+            details: error.message
+        });
     }
 };
 

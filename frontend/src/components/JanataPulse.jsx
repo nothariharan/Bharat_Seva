@@ -38,7 +38,7 @@ const JanataPulse = ({ selectedLang, onMaximize }) => {
         );
     }
 
-    const criticalAlerts = pulseData?.alerts.filter(a => a.status === 'CRITICAL') || [];
+    const criticalAlerts = (pulseData && pulseData.alerts) ? pulseData.alerts.filter(a => a.status === 'CRITICAL') : [];
 
     return (
         <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans">

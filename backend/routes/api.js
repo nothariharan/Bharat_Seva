@@ -33,11 +33,11 @@ router.put('/communities/:id', require('../controllers/communityController').upd
 router.post('/communities/match', getMatchingCommunities);
 router.post('/communities/respond', respondToQuery);
 
-// Knowledge Board
-router.get('/social/posts', getKnowledgeBoard);
-router.post('/social/posts', createPost);
-router.post('/social/posts/transcribe', upload.single('audio'), require('../controllers/socialController').transcribePost);
-router.post('/social/posts/:postId/upvote', upvotePost);
+// Knowledge Board (simplified paths to match frontend)
+router.get('/posts', getKnowledgeBoard);
+router.post('/posts', createPost);
+router.post('/posts/transcribe', upload.single('audio'), require('../controllers/socialController').transcribePost);
+router.post('/posts/:postId/upvote', upvotePost);
 
 // Notifications
 router.post('/notify-citizen', require('../controllers/queryController').notifyCitizen);
